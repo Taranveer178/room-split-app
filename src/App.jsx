@@ -15,12 +15,12 @@ import {
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyCOJBE94_PA5RYG4pZ83zYpKszPndDx5a4",
+  authDomain: "roomsplit-86601.firebaseapp.com",
+  projectId: "roomsplit-86601",
+  storageBucket: "roomsplit-86601.firebasestorage.app",
+  messagingSenderId: "6706257446",
+  appId: "1:6706257446:web:7d7f65518aea493cc310e7"
 };
 
 const hasFirebase = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
@@ -194,7 +194,8 @@ export default function App() {
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Authenticate anonymously & bind real-time Firestore sync
+
+ // Authenticate anonymously & bind real-time Firestore sync
   useEffect(() => {
     if (!hasFirebase || !db || !auth) {
       const savedUsers = localStorage.getItem('rs_users');
@@ -208,50 +209,64 @@ export default function App() {
       return;
     }
 
-    const unsubs = [];
+    let unsubs = [];
 
     const setupAuthAndSync = async () => {
       try {
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
+        // Ensure anonymous session is active first
+        await signInAnonymously(auth);
 
+        // 1. Users Listener
         const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-          if (snapshot.empty) {
-            INITIAL_USERS.forEach(u => setDoc(doc(db, 'users', u.id), u));
-            setUsers(INITIAL_USERS);
-          } else {
+          if (!snapshot.empty) {
             const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setUsers(list);
+          } else {
+            // Seed once if totally empty
+            INITIAL_USERS.forEach(u => setDoc(doc(db, 'users', u.id), u).catch(() => {}));
+            setUsers(INITIAL_USERS);
           }
-        });
+        }, (err) => console.error("Users listener error:", err));
         unsubs.push(unsubUsers);
 
+        // 2. Groups Listener
         const unsubGroups = onSnapshot(collection(db, 'groups'), (snapshot) => {
-          if (snapshot.empty) {
-            INITIAL_GROUPS.forEach(g => setDoc(doc(db, 'groups', g.id), g));
-            setGroups(INITIAL_GROUPS);
-          } else {
+          if (!snapshot.empty) {
             const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setGroups(list);
+          } else {
+            // Seed once if totally empty
+            INITIAL_GROUPS.forEach(g => setDoc(doc(db, 'groups', g.id), g).catch(() => {}));
+            setGroups(INITIAL_GROUPS);
           }
-        });
+        }, (err) => console.error("Groups listener error:", err));
         unsubs.push(unsubGroups);
 
+        // 3. Expenses Listener
         const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
-          if (snapshot.empty) {
-            INITIAL_EXPENSES.forEach(e => setDoc(doc(db, 'expenses', e.id), e));
-            setExpenses(INITIAL_EXPENSES);
-          } else {
+          if (!snapshot.empty) {
             const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setExpenses(list);
+          } else {
+            // Check if we already seeded previously
+            const hasSeeded = localStorage.getItem('rs_seeded_expenses');
+            if (!hasSeeded) {
+              INITIAL_EXPENSES.forEach(e => setDoc(doc(db, 'expenses', e.id), e).catch(() => {}));
+              localStorage.setItem('rs_seeded_expenses', 'true');
+              setExpenses(INITIAL_EXPENSES);
+            } else {
+              setExpenses([]);
+            }
           }
+          setLoading(false);
+        }, (err) => {
+          console.error("Expenses listener error:", err);
           setLoading(false);
         });
         unsubs.push(unsubExpenses);
 
       } catch (err) {
-        console.error("Firestore sync error:", err);
+        console.error("Firestore auth setup failed:", err);
         setLoading(false);
       }
     };
