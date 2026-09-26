@@ -2,10 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Plus, LogOut, Receipt, Wallet, 
   ArrowLeft, CheckCircle2, AlertCircle,
-  Tag, CreditCard, Banknote, Activity,
-  ChevronRight, UserPlus, Copy, KeyRound, Settings, Loader2,
-  Trash2, Filter
+  ChevronRight, UserPlus, Copy, KeyRound, Settings, 
+  Trash2, Loader2
 } from 'lucide-react';
+
+// Firebase Modular SDK
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, collection, onSnapshot, doc, 
+  setDoc, deleteDoc, writeBatch 
+} from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,6 +22,22 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+const hasFirebase = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+
+let app = null;
+let db = null;
+let auth = null;
+
+if (hasFirebase) {
+  try {
+    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+  } catch (err) {
+    console.error("Firebase init failed:", err);
+  }
+}
 
 const CATEGORIES = ['Food', 'Grocery', 'Petrol', 'Rent', 'Electricity', 'WiFi', 'Shopping', 'Entertainment', 'Other'];
 const PAYMENT_METHODS = ['UPI', 'Cash', 'Card', 'Other'];
@@ -32,7 +55,7 @@ const INITIAL_GROUPS = [
     id: 'grp_room302',
     name: 'Room',
     description: 'Flat 302 room expenses',
-    inviteCode: 'ROOM302',
+    inviteCode: 'SINGH1',
     createdBy: 'usr_taran',
     members: ['usr_taran', 'usr_sushant', 'usr_tushar'],
     createdAt: new Date().toISOString()
@@ -158,20 +181,10 @@ const Input = ({ label, error, ...props }) => (
 );
 
 export default function App() {
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem('rs_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
-  });
-
-  const [groups, setGroups] = useState(() => {
-    const saved = localStorage.getItem('rs_groups');
-    return saved ? JSON.parse(saved) : INITIAL_GROUPS;
-  });
-
-  const [expenses, setExpenses] = useState(() => {
-    const saved = localStorage.getItem('rs_expenses');
-    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
-  });
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [activeUserId, setActiveUserId] = useState(() => {
     return localStorage.getItem('rs_active_user_id') || null;
@@ -181,18 +194,74 @@ export default function App() {
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Sync state to LocalStorage
+  // Authenticate anonymously & bind real-time Firestore sync
   useEffect(() => {
-    localStorage.setItem('rs_users', JSON.stringify(users));
-  }, [users]);
+    if (!hasFirebase || !db || !auth) {
+      const savedUsers = localStorage.getItem('rs_users');
+      const savedGroups = localStorage.getItem('rs_groups');
+      const savedExpenses = localStorage.getItem('rs_expenses');
 
-  useEffect(() => {
-    localStorage.setItem('rs_groups', JSON.stringify(groups));
-  }, [groups]);
+      setUsers(savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS);
+      setGroups(savedGroups ? JSON.parse(savedGroups) : INITIAL_GROUPS);
+      setExpenses(savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES);
+      setLoading(false);
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem('rs_expenses', JSON.stringify(expenses));
-  }, [expenses]);
+    const unsubs = [];
+
+    const setupAuthAndSync = async () => {
+      try {
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+
+        const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+          if (snapshot.empty) {
+            INITIAL_USERS.forEach(u => setDoc(doc(db, 'users', u.id), u));
+            setUsers(INITIAL_USERS);
+          } else {
+            const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            setUsers(list);
+          }
+        });
+        unsubs.push(unsubUsers);
+
+        const unsubGroups = onSnapshot(collection(db, 'groups'), (snapshot) => {
+          if (snapshot.empty) {
+            INITIAL_GROUPS.forEach(g => setDoc(doc(db, 'groups', g.id), g));
+            setGroups(INITIAL_GROUPS);
+          } else {
+            const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            setGroups(list);
+          }
+        });
+        unsubs.push(unsubGroups);
+
+        const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
+          if (snapshot.empty) {
+            INITIAL_EXPENSES.forEach(e => setDoc(doc(db, 'expenses', e.id), e));
+            setExpenses(INITIAL_EXPENSES);
+          } else {
+            const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            setExpenses(list);
+          }
+          setLoading(false);
+        });
+        unsubs.push(unsubExpenses);
+
+      } catch (err) {
+        console.error("Firestore sync error:", err);
+        setLoading(false);
+      }
+    };
+
+    setupAuthAndSync();
+
+    return () => {
+      unsubs.forEach(unsub => unsub && unsub());
+    };
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -212,11 +281,80 @@ export default function App() {
     setCurrentView('dashboard');
   };
 
+  // Cloud & Local unified state updaters
+  const saveUser = async (newUser) => {
+    if (db) {
+      await setDoc(doc(db, 'users', newUser.id), newUser);
+    } else {
+      setUsers(prev => {
+        const next = [...prev, newUser];
+        localStorage.setItem('rs_users', JSON.stringify(next));
+        return next;
+      });
+    }
+  };
+
+  const saveGroup = async (newGroup) => {
+    if (db) {
+      await setDoc(doc(db, 'groups', newGroup.id), newGroup);
+    } else {
+      setGroups(prev => {
+        const next = [...prev, newGroup];
+        localStorage.setItem('rs_groups', JSON.stringify(next));
+        return next;
+      });
+    }
+  };
+
+  const updateGroup = async (updatedGroup) => {
+    if (db) {
+      await setDoc(doc(db, 'groups', updatedGroup.id), updatedGroup, { merge: true });
+    } else {
+      setGroups(prev => {
+        const next = prev.map(g => g.id === updatedGroup.id ? updatedGroup : g);
+        localStorage.setItem('rs_groups', JSON.stringify(next));
+        return next;
+      });
+    }
+  };
+
+  const saveExpense = async (newExpense) => {
+    if (db) {
+      await setDoc(doc(db, 'expenses', newExpense.id), newExpense);
+    } else {
+      setExpenses(prev => {
+        const next = [...prev, newExpense];
+        localStorage.setItem('rs_expenses', JSON.stringify(next));
+        return next;
+      });
+    }
+  };
+
+  const deleteExpense = async (expenseId) => {
+    if (db) {
+      await deleteDoc(doc(db, 'expenses', expenseId));
+    } else {
+      setExpenses(prev => {
+        const next = prev.filter(e => e.id !== expenseId);
+        localStorage.setItem('rs_expenses', JSON.stringify(next));
+        return next;
+      });
+    }
+  };
+
   const activeUser = users.find(u => u.id === activeUserId);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-indigo-600 mb-2" size={32} />
+        <p className="text-slate-500 font-medium text-sm">Connecting to RoomSplit...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 sm:border-x border-slate-200 sm:shadow-[0_0_40px_rgba(0,0,0,0.1)] relative overflow-hidden font-sans">
-      {/* Toast Notification */}
       {toast && (
         <div className={`absolute top-4 left-4 right-4 p-4 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in slide-in-from-top-5 ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'}`}>
           {toast.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
@@ -227,7 +365,7 @@ export default function App() {
       {!activeUser ? (
         <AuthScreen 
           users={users} 
-          setUsers={setUsers} 
+          onSaveUser={saveUser} 
           onLogin={handleLogin} 
         />
       ) : currentView === 'dashboard' ? (
@@ -242,7 +380,7 @@ export default function App() {
       ) : currentView === 'create_group' ? (
         <CreateGroupView 
           user={activeUser} 
-          setGroups={setGroups} 
+          onSaveGroup={saveGroup} 
           onBack={() => setCurrentView('dashboard')} 
           showToast={showToast}
         />
@@ -250,7 +388,7 @@ export default function App() {
         <JoinGroupView 
           user={activeUser} 
           groups={groups} 
-          setGroups={setGroups} 
+          onUpdateGroup={updateGroup} 
           onBack={() => setCurrentView('dashboard')} 
           showToast={showToast}
         />
@@ -258,7 +396,8 @@ export default function App() {
         <GroupView
           group={groups.find(g => g.id === currentGroupId)}
           expenses={expenses.filter(e => e.groupId === currentGroupId)}
-          setExpenses={setExpenses}
+          onSaveExpense={saveExpense}
+          onDeleteExpense={deleteExpense}
           users={users}
           currentUser={activeUser}
           onBack={() => { setCurrentGroupId(null); setCurrentView('dashboard'); }}
@@ -269,13 +408,13 @@ export default function App() {
   );
 }
 
-function AuthScreen({ users, setUsers, onLogin }) {
+function AuthScreen({ users, onSaveUser, onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     const cleanUser = username.trim();
@@ -309,7 +448,7 @@ function AuthScreen({ users, setUsers, onLogin }) {
         createdAt: new Date().toISOString()
       };
 
-      setUsers(prev => [...prev, newUser]);
+      await onSaveUser(newUser);
       onLogin(newUser.id);
     }
   };
@@ -438,11 +577,11 @@ function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinG
   );
 }
 
-function CreateGroupView({ user, setGroups, onBack, showToast }) {
+function CreateGroupView({ user, onSaveGroup, onBack, showToast }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -456,7 +595,7 @@ function CreateGroupView({ user, setGroups, onBack, showToast }) {
       createdAt: new Date().toISOString()
     };
 
-    setGroups(prev => [...prev, newGroup]);
+    await onSaveGroup(newGroup);
     showToast('Group created successfully!');
     onBack();
   };
@@ -480,10 +619,10 @@ function CreateGroupView({ user, setGroups, onBack, showToast }) {
   );
 }
 
-function JoinGroupView({ user, groups, setGroups, onBack, showToast }) {
+function JoinGroupView({ user, groups, onUpdateGroup, onBack, showToast }) {
   const [code, setCode] = useState('');
 
-  const handleJoin = (e) => {
+  const handleJoin = async (e) => {
     e.preventDefault();
     const cleanCode = code.trim().toUpperCase();
     if (!cleanCode) return;
@@ -500,13 +639,12 @@ function JoinGroupView({ user, groups, setGroups, onBack, showToast }) {
       return;
     }
 
-    setGroups(prev => prev.map(g => {
-      if (g.id === group.id) {
-        return { ...g, members: [...g.members, user.id] };
-      }
-      return g;
-    }));
+    const updated = {
+      ...group,
+      members: [...group.members, user.id]
+    };
 
+    await onUpdateGroup(updated);
     showToast(`Joined ${group.name}!`);
     onBack();
   };
@@ -544,8 +682,8 @@ function JoinGroupView({ user, groups, setGroups, onBack, showToast }) {
   );
 }
 
-function GroupView({ group, expenses, setExpenses, users, currentUser, onBack, showToast }) {
-  const [activeTab, setActiveTab] = useState('expenses'); // expenses, add, balances, members
+function GroupView({ group, expenses, onSaveExpense, onDeleteExpense, users, currentUser, onBack, showToast }) {
+  const [activeTab, setActiveTab] = useState('expenses');
 
   const getUserName = (userId) => {
     const u = users.find(u => u.id === userId);
@@ -572,7 +710,7 @@ function GroupView({ group, expenses, setExpenses, users, currentUser, onBack, s
             expenses={sortedExpenses} 
             currentUser={currentUser} 
             getUserName={getUserName} 
-            setExpenses={setExpenses}
+            onDeleteExpense={onDeleteExpense}
             showToast={showToast}
           />
         )}
@@ -582,7 +720,7 @@ function GroupView({ group, expenses, setExpenses, users, currentUser, onBack, s
             currentUser={currentUser} 
             users={users} 
             getUserName={getUserName} 
-            setExpenses={setExpenses}
+            onSaveExpense={onSaveExpense}
             onSaved={() => setActiveTab('expenses')} 
             showToast={showToast} 
           />
@@ -604,7 +742,6 @@ function GroupView({ group, expenses, setExpenses, users, currentUser, onBack, s
           />
         )}
 
-        {/* Floating Action Button for adding expense */}
         {activeTab === 'expenses' && (
           <button 
             onClick={() => setActiveTab('add')}
@@ -616,7 +753,6 @@ function GroupView({ group, expenses, setExpenses, users, currentUser, onBack, s
         )}
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="bg-white border-t border-slate-200 absolute bottom-0 w-full z-40">
         <div className="flex justify-around items-center h-16">
           <NavItem icon={Receipt} label="Expenses" isActive={activeTab === 'expenses' || activeTab === 'add'} onClick={() => setActiveTab('expenses')} />
@@ -635,7 +771,7 @@ const NavItem = ({ icon: Icon, label, isActive, onClick }) => (
   </button>
 );
 
-function ExpensesTab({ expenses, currentUser, getUserName, setExpenses, showToast }) {
+function ExpensesTab({ expenses, currentUser, getUserName, onDeleteExpense, showToast }) {
   const [filterMethod, setFilterMethod] = useState('ALL');
 
   const filtered = expenses.filter(exp => {
@@ -643,15 +779,14 @@ function ExpensesTab({ expenses, currentUser, getUserName, setExpenses, showToas
     return exp.paymentMethod === filterMethod;
   });
 
-  const handleDelete = (e, expId) => {
+  const handleDelete = async (e, expId) => {
     e.stopPropagation();
-    setExpenses(prev => prev.filter(item => item.id !== expId));
+    await onDeleteExpense(expId);
     showToast('Expense deleted');
   };
 
   return (
     <div className="p-4 space-y-3">
-      {/* Payment Method filter tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
         <button 
           onClick={() => setFilterMethod('ALL')}
@@ -728,7 +863,7 @@ function ExpensesTab({ expenses, currentUser, getUserName, setExpenses, showToas
   );
 }
 
-function AddExpenseTab({ group, currentUser, users, getUserName, setExpenses, onSaved, showToast }) {
+function AddExpenseTab({ group, currentUser, users, getUserName, onSaveExpense, onSaved, showToast }) {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState(currentUser.id);
@@ -752,7 +887,7 @@ function AddExpenseTab({ group, currentUser, users, getUserName, setExpenses, on
     setCustomSplits(initCustom);
   }, [group.members]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
@@ -816,7 +951,7 @@ function AddExpenseTab({ group, currentUser, users, getUserName, setExpenses, on
       createdAt: new Date().toISOString()
     };
 
-    setExpenses(prev => [...prev, newExpense]);
+    await onSaveExpense(newExpense);
     showToast('Expense saved!');
     onSaved();
   };
@@ -866,7 +1001,6 @@ function AddExpenseTab({ group, currentUser, users, getUserName, setExpenses, on
           </div>
         </Card>
 
-        {/* Split selection card */}
         <Card className="p-4 bg-white">
           <div className="flex justify-between items-center mb-3">
             <label className="block text-sm font-bold text-slate-800">Split Method</label>
