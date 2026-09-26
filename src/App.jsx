@@ -362,8 +362,14 @@ export default function App() {
   if (loading) {
     return (
       <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-indigo-600 mb-2" size={32} />
-        <p className="text-slate-500 font-medium text-sm">Connecting to RoomSplit...</p>
+        <div className="relative flex items-center justify-center mb-4">
+          <img 
+            src="/roomsplit-icon.webp" 
+            alt="RoomSplit" 
+            className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" 
+          />
+        </div>
+        <p className="text-slate-600 font-semibold text-sm">Expense Tracker</p>
       </div>
     );
   }
@@ -471,8 +477,12 @@ function AuthScreen({ users, onSaveUser, onLogin }) {
   return (
     <div className="flex-1 flex flex-col justify-center px-6 bg-white">
       <div className="text-center mb-8">
-        <div className="w-20 h-20 bg-indigo-600 rounded-[24px] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200 rotate-6">
-          <Receipt size={36} className="text-white -rotate-6" />
+        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center overflow-hidden bg-white border border-slate-100 p-2">
+          <img 
+            src="/roomsplit-icon.webp" 
+            alt="RoomSplit Logo" 
+            className="w-full h-full object-contain" 
+          />
         </div>
         <h1 className="text-3xl font-bold text-slate-800 tracking-tight">RoomSplit</h1>
         <p className="text-slate-500 mt-2 font-medium">Shared expenses, sorted.</p>
@@ -525,11 +535,13 @@ function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinG
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10 sticky top-0">
+     <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10 sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-sm">
-            <Receipt size={20} />
-          </div>
+          <img 
+            src="/roomsplit-icon.webp" 
+            alt="RoomSplit" 
+            className="w-9 h-9 rounded-xl object-contain shadow-sm" 
+          />
           <span className="text-xl font-bold text-slate-800">RoomSplit</span>
         </div>
         <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 rounded-full" title="Log out">
