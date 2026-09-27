@@ -77,7 +77,13 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
       createdAt: new Date().toISOString(),
     };
 
-    await onSaveExpense(newExpense);
+    try {
+      await onSaveExpense(newExpense);
+    } catch (saveError) {
+      console.error('Expense save failed:', saveError);
+      setError('Could not save the expense. Check your connection and try again.');
+      return;
+    }
 
     // Safely trigger local notification without crashing Android Chrome
     try {
@@ -107,6 +113,7 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
 
     showToast('Expense saved!');
     onSaved();
+  };
 
   const activeCount = Object.values(selectedParticipants).filter(Boolean).length;
   const equalAmount = amount && !Number.isNaN(Number(amount)) && activeCount > 0 ? (parseFloat(amount) / activeCount).toFixed(2) : '0.00';
