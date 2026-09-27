@@ -79,18 +79,34 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
 
     await onSaveExpense(newExpense);
 
-    // Browser notification trigger
-    if (Notification.permission === 'granted') {
-      const payerName = paidBy === currentUser.id ? 'You' : getUserName(paidBy);
-      new Notification(`New Expense: ${group.name}`, {
-        body: `${payerName} added ₹${numericAmount.toFixed(2)} for ${title.trim()}`,
-        icon: '/roomsplit-icon.webp',
-      });
+    // Safely trigger local notification without crashing Android Chrome
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        const payerName = paidBy === currentUser.id ? 'You' : getUserName(paidBy);
+        const titleText = `New Expense: ${group.name}`;
+        const options = {
+          body: `${payerName} added ₹${numericAmount.toFixed(2)} for ${title.trim()}`,
+          icon: '/roomsplit-icon.webp',
+        };
+
+        // ServiceWorker registration (Android compliant)
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(titleText, options);
+          }).catch(() => {
+            // Fallback for standard environments
+            new Notification(titleText, options);
+          });
+        } else {
+          new Notification(titleText, options);
+        }
+      }
+    } catch (notifErr) {
+      console.warn("Notification skipped or unsupported on this device:", notifErr);
     }
 
     showToast('Expense saved!');
     onSaved();
-  };
 
   const activeCount = Object.values(selectedParticipants).filter(Boolean).length;
   const equalAmount = amount && !Number.isNaN(Number(amount)) && activeCount > 0 ? (parseFloat(amount) / activeCount).toFixed(2) : '0.00';
