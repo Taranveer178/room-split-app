@@ -5,6 +5,7 @@ import {
   ChevronRight, UserPlus, Copy, KeyRound, Settings, 
   Trash2, Loader2
 } from 'lucide-react';
+import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 // Firebase Modular SDK
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -363,8 +364,8 @@ export default function App() {
     return (
       <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
         <div className="relative flex items-center justify-center mb-4">
-          <img 
-            src="src\assets\roomsplit-icon.webp" 
+          <img
+            src={roomsplitIcon} 
             alt="RoomSplit" 
             className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" 
           />
@@ -479,7 +480,7 @@ function AuthScreen({ users, onSaveUser, onLogin }) {
       <div className="text-center mb-8">
         <div className="w-20 h-20 mx-auto mb-5 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center overflow-hidden bg-white border border-slate-100 p-2">
           <img 
-            src="src\assets\roomsplit-icon.webp" 
+            src={roomsplitIcon} 
             alt="RoomSplit Logo" 
             className="w-full h-full object-contain" 
           />
@@ -538,7 +539,7 @@ function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinG
      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10 sticky top-0">
         <div className="flex items-center gap-3">
           <img 
-            src="src\assets\roomsplit-icon.webp" 
+            src={roomsplitIcon} 
             alt="RoomSplit" 
             className="w-9 h-9 rounded-xl object-contain shadow-sm" 
           />
