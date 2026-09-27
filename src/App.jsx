@@ -18,7 +18,6 @@ import CreateGroupModal from './components/dashboard/CreateGroupModal';
 import JoinGroupModal from './components/dashboard/JoinGroupModal';
 import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
-import { listenForForegroundNotifications } from './utils/notifications';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 
@@ -45,19 +44,6 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    let unsubscribe = () => {};
-    listenForForegroundNotifications().then((stopListening) => {
-      if (active) unsubscribe = stopListening;
-      else stopListening();
-    });
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     if (!hasFirebase || !db || !auth) {

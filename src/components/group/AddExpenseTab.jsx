@@ -69,7 +69,6 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
       title: title.trim(),
       totalAmount: numericAmount.toFixed(2),
       paidBy,
-      createdBy: currentUser.id,
       paymentMethod,
       category,
       date,
