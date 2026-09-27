@@ -21,6 +21,18 @@ import Toast from './components/common/Toast';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then((registration) => {
+        console.log('Service Worker registered successfully:', registration.scope);
+      })
+      .catch((err) => {
+        console.log('Service Worker registration failed:', err);
+      });
+  });
+}
+
 export default function App() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);

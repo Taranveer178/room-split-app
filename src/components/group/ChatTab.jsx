@@ -56,6 +56,7 @@ export default function ChatTab({ group, currentUser, users }) {
     setInput('');
 
     try {
+      // 1. Save to Firebase Firestore
       await addDoc(collection(db, 'messages'), {
         groupId: group.id,
         senderId: currentUser.id,
@@ -64,6 +65,14 @@ export default function ChatTab({ group, currentUser, users }) {
         timestamp: Date.now(),
         createdAt: serverTimestamp()
       });
+
+      // 2. Trigger Notification right here after successful send
+      if (Notification.permission === 'granted') {
+        new Notification(`New message in ${group.name}`, {
+          body: `${currentUser.username}: ${cleanText}`,
+          icon: '/roomsplit-icon.webp'
+        });
+      }
     } catch (err) {
       console.error("Error sending message:", err);
     }

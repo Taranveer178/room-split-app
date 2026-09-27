@@ -74,18 +74,18 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
             showToast={showToast} 
           />
         )}
-
-        {/* Floating Add Button only on expenses view */}
-        {activeTab === 'expenses' && (
-          <button 
-            onClick={() => setActiveTab('add')} 
-            className="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] active:scale-95 transition-transform z-30" 
-            title="Add Expense"
-          >
-            <Plus size={28} />
-          </button>
-        )}
       </main>
+
+      {/* Pinned Add Expense Button - Moved outside <main> to stay anchored during scroll */}
+      {activeTab === 'expenses' && (
+        <button 
+          onClick={() => setActiveTab('add')} 
+          className="absolute bottom-20 right-5 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] active:scale-95 transition-transform z-30" 
+          title="Add Expense"
+        >
+          <Plus size={28} />
+        </button>
+      )}
 
       {/* Pinned Bottom Nav with mobile safe-area protection */}
       <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
