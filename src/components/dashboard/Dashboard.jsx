@@ -1,19 +1,33 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, LogOut, Plus, UserPlus, Users, Download } from 'lucide-react';
+import { Bell, ChevronRight, LogOut, Plus, UserPlus, Users, Download } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card } from '../common/UI';
-import { requestNotificationPermission } from '../../utils/notifications';
+import { enablePushNotifications, refreshPushToken } from '../../utils/notifications';
 
 export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinGroup }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
   const myGroups = groups.filter((group) => group.members && group.members.includes(user.id));
 
 useEffect(() => {
-  if (user?.id) {
-    requestNotificationPermission(user);
+  if (user?.id && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    refreshPushToken(user).then(setNotificationsEnabled);
   }
-}, [user?.id]);
+}, [user]);
+
+  const handleEnableNotifications = async () => {
+    setEnablingNotifications(true);
+    setNotificationMessage('');
+    const result = await enablePushNotifications(user);
+    setNotificationsEnabled(result === 'enabled');
+    if (result === 'denied') setNotificationMessage('Notifications are blocked in browser or device settings.');
+    if (result === 'unsupported') setNotificationMessage('Push is unavailable here. On iPhone, open the Home Screen app.');
+    if (result === 'failed') setNotificationMessage('Could not register this device. Please try again.');
+    setEnablingNotifications(false);
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -74,6 +88,26 @@ useEffect(() => {
           <h1 className="text-2xl font-bold text-slate-800">Hi, {user.username}!</h1>
           <p className="text-slate-500 mt-1">Here are your shared groups.</p>
         </div>
+
+        {!notificationsEnabled && (
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 text-slate-700">
+                <Bell size={20} className="shrink-0 text-indigo-600" />
+                <span className="text-sm font-semibold">Get group expense alerts</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                disabled={enablingNotifications}
+                className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {enablingNotifications ? 'Enabling...' : 'Enable'}
+              </button>
+            </div>
+            {notificationMessage && <p className="mt-2 text-xs text-slate-500">{notificationMessage}</p>}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 mb-8">
           <button onClick={onCreateGroup} className="flex flex-col items-center justify-center p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700 active:bg-indigo-100 transition-colors">
