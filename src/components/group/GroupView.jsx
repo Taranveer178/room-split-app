@@ -96,17 +96,17 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
             isActive={activeTab === 'expenses' || activeTab === 'add'} 
             onClick={() => setActiveTab('expenses')} 
           />
-          <NavItem 
-            icon={Wallet} 
-            label="Balances" 
-            isActive={activeTab === 'balances'} 
-            onClick={() => setActiveTab('balances')} 
-          />
           <NavItem
             icon={MessageSquare}
             label="Chat"
             isActive={activeTab === 'chat'}
             onClick={() => setActiveTab('chat')}
+          />
+          <NavItem 
+            icon={Wallet} 
+            label="Balances" 
+            isActive={activeTab === 'balances'} 
+            onClick={() => setActiveTab('balances')} 
           />
           <NavItem 
             icon={Settings} 

@@ -20,6 +20,7 @@ import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
+
 export default function App() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);

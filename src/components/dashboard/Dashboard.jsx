@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, LogOut, Plus, UserPlus, Users, Download } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card } from '../common/UI';
+import { requestNotificationPermission } from '../../utils/notifications';
 
 export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinGroup }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const myGroups = groups.filter((group) => group.members && group.members.includes(user.id));
+
+useEffect(() => {
+  if (user?.id) {
+    requestNotificationPermission(user);
+  }
+}, [user?.id]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
