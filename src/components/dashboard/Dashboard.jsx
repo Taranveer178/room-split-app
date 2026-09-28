@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, Plus, UserPlus, Users, Download, 
-  Bell, User, ChevronRight, Lock, Mail, UserCircle, Trash2
+  Bell, User, ChevronRight, Lock, Mail, UserCircle, Trash2 , TrendingUp
 } from 'lucide-react';
 import { updateProfile, updateEmail } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card, Button, Input, NavItem } from '../common/UI';
 import { requestNotificationPermission } from '../../utils/notifications';
+import MonthlyAnalyticsTab from './MonthlyAnalyticsTab';
 
 
-export default function Dashboard({ user, groups, notifications, onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, showToast }) {
+export default function Dashboard({ user, groups, notifications,expenses= [], onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, showToast }) {
   const [activeTab, setActiveTab] = useState('groups');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -246,7 +247,18 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
         )}
 
         {/* ============================== */}
-        {/* TAB 3: USER PROFILE SETTINGS   */}
+        {/* TAB 3: MONTHLY EXPENSES TRACK  */}
+        {/* ============================== */}
+        {activeTab === 'monthly' && (
+          <MonthlyAnalyticsTab 
+            user={user} 
+            expenses={expenses} 
+            groups={groups} 
+          />
+        )}
+
+        {/* ============================== */}
+        {/* TAB 4: USER PROFILE SETTINGS   */}
         
         {activeTab === 'profile' && (
           <ProfileTab 
@@ -258,27 +270,32 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
       </main>
 
       {/* Main Dashboard Bottom Navigation */}
-      {/* Main Dashboard Bottom Navigation */}
       <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex justify-around items-center h-16">
-          <NavItem 
-            icon={Users} 
-            label="Groups" 
-            isActive={activeTab === 'groups'} 
-            onClick={() => setActiveTab('groups')} 
-          />
-
-          {/* Activity Tab with unread indicator badge */}
+        <div className="grid grid-cols-4 items-center h-16 w-full">
+          {/* 1. Groups */}
           <button
+            type="button"
+            onClick={() => setActiveTab('groups')}
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+              activeTab === 'groups' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <Users size={20} />
+            <span className="text-[11px] mt-1">Groups</span>
+          </button>
+
+          {/* 2. Activity with Badge */}
+          <button
+            type="button"
             onClick={() => setActiveTab('notifications')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors relative ${
               activeTab === 'notifications' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
             }`}
           >
-            <div className="relative">
+            <div className="relative inline-flex items-center justify-center">
               <Bell size={20} />
               {unreadNotifications.length > 0 && (
-                <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5">
+                <span className="absolute -top-1 -right-1 z-20 flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 ring-2 ring-white"></span>
                 </span>
@@ -287,12 +304,29 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
             <span className="text-[11px] mt-1">Activity</span>
           </button>
 
-          <NavItem 
-            icon={User} 
-            label="Profile" 
-            isActive={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')} 
-          />
+          {/* 3. Monthly Tracker */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('monthly')}
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+              activeTab === 'monthly' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <TrendingUp size={20} />
+            <span className="text-[11px] mt-1">Monthly</span>
+          </button>
+
+          {/* 4. Profile */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+              activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <User size={20} />
+            <span className="text-[11px] mt-1">Profile</span>
+          </button>
         </div>
       </nav>
     </div>

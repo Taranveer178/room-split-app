@@ -255,6 +255,7 @@ export default function App() {
         <Dashboard
           user={activeUser}
           groups={groups}
+          expenses={expenses}
           onLogout={handleLogout}
           onOpenGroup={(id) => { setCurrentGroupId(id); setCurrentView('group'); }}
           onCreateGroup={() => setCurrentView('create_group')}

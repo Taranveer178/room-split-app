@@ -57,6 +57,9 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
             currentUser={currentUser} 
             getUserName={getUserName}
             users={users} 
+            onSaveExpense={onSaveExpense}
+            onSendNotification={onSendNotification}
+            showToast={showToast}
           />
         )}
 
