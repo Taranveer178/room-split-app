@@ -241,7 +241,7 @@ export default function App() {
         <div className="relative flex items-center justify-center mb-4">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" />
         </div>
-        <p className="text-slate-600 font-semibold text-sm">Expense Tracker</p>
+        <p className="text-slate-600 font-semibold text-sm">RoomSplit</p>
       </div>
     );
   }
