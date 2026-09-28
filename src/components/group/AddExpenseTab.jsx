@@ -3,7 +3,15 @@ import { AlertCircle } from 'lucide-react';
 import { CATEGORIES, PAYMENT_METHODS } from '../../utils/constants';
 import { Button, Card, Input } from '../common/UI';
 
-export default function AddExpenseTab({ group, currentUser, getUserName, onSaveExpense, onSaved, showToast }) {
+export default function AddExpenseTab({
+  group,
+  currentUser,
+  getUserName,
+  onSaveExpense,
+  onSendNotification, // Add this handler to dispatch notifications
+  onSaved,
+  showToast,
+}) {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState(currentUser.id);
@@ -75,9 +83,40 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
       splits: finalSplits,
       createdAt: new Date().toISOString(),
     };
-    await onSaveExpense(newExpense);
-    showToast('Expense saved!');
-    onSaved();
+
+    try {
+      await onSaveExpense(newExpense);
+
+      // Notify all other members involved in the group / split
+      if (onSendNotification) {
+        const payerName = paidBy === currentUser.id ? 'You' : getUserName(paidBy);
+        const recipientIds = group.members.filter((id) => id !== currentUser.id);
+
+        const notifications = recipientIds.map((memberId) => {
+          const owesAmount = finalSplits[memberId];
+          const splitText = owesAmount ? ` (Your share: ₹${owesAmount})` : '';
+
+          return {
+            id: `notif_${Date.now()}_${memberId}`,
+            recipientId: memberId,
+            senderId: currentUser.id,
+            groupId: group.id,
+            type: 'EXPENSE_ADDED',
+            message: `${payerName} added "${newExpense.title}" for ₹${newExpense.totalAmount}${splitText}.`,
+            expenseId: newExpense.id,
+            createdAt: new Date().toISOString(),
+            read: false,
+          };
+        });
+
+        await onSendNotification(notifications);
+      }
+
+      showToast('Expense saved and members notified!');
+      onSaved();
+    } catch (err) {
+      setError('Failed to save expense. Please try again.');
+    }
   };
 
   const activeCount = Object.values(selectedParticipants).filter(Boolean).length;
@@ -86,7 +125,12 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
   return (
     <div className="p-4 pb-12">
       <h2 className="text-lg font-bold text-slate-800 mb-3">Add Expense</h2>
-      {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs flex items-start gap-2 border border-red-100 mb-4"><AlertCircle size={16} className="mt-0.5 flex-shrink-0" /><p className="font-medium">{error}</p></div>}
+      {error && (
+        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs flex items-start gap-2 border border-red-100 mb-4">
+          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card className="p-4 space-y-3 bg-white">
           <Input label="Description / Title" placeholder="e.g. Dinner, Petrol, WiFi" value={title} onChange={(event) => setTitle(event.target.value)} required />
@@ -95,13 +139,27 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
             <div className="mb-4">
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Paid By</label>
               <select className="w-full px-3 py-3.5 text-base border border-slate-200 rounded-xl bg-slate-50 outline-none" value={paidBy} onChange={(event) => setPaidBy(event.target.value)}>
-                {group.members.map((memberId) => <option key={memberId} value={memberId}>{memberId === currentUser.id ? 'You' : getUserName(memberId)}</option>)}
+                {group.members.map((memberId) => (
+                  <option key={memberId} value={memberId}>
+                    {memberId === currentUser.id ? 'You' : getUserName(memberId)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1.5">Category</label><select className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 outline-none text-sm" value={category} onChange={(event) => setCategory(event.target.value)}>{CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1.5">Payment Method</label><select className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 outline-none text-sm" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>{PAYMENT_METHODS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Category</label>
+              <select className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 outline-none text-sm" value={category} onChange={(event) => setCategory(event.target.value)}>
+                {CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Payment Method</label>
+              <select className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 outline-none text-sm" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                {PAYMENT_METHODS.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
           </div>
         </Card>
 
@@ -123,7 +181,10 @@ export default function AddExpenseTab({ group, currentUser, getUserName, onSaveE
                     <input type="checkbox" className="w-5 h-5 rounded accent-indigo-600 cursor-pointer" checked={selectedParticipants[memberId] || false} onChange={(event) => setSelectedParticipants((previous) => ({ ...previous, [memberId]: event.target.checked }))} />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2"><span className="text-slate-400 text-sm">₹</span><input type="number" min="0" step="0.01" placeholder="0.00" className="w-20 px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg text-right font-mono bg-white outline-none focus:border-indigo-500" value={customSplits[memberId]} onChange={(event) => setCustomSplits((previous) => ({ ...previous, [memberId]: event.target.value }))} /></div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-sm">₹</span>
+                    <input type="number" min="0" step="0.01" placeholder="0.00" className="w-20 px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg text-right font-mono bg-white outline-none focus:border-indigo-500" value={customSplits[memberId]} onChange={(event) => setCustomSplits((previous) => ({ ...previous, [memberId]: event.target.value }))} />
+                  </div>
                 )}
               </div>
             ))}
