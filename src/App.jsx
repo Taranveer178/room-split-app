@@ -134,6 +134,18 @@ export default function App() {
     });
   };
 
+  const updateUser = async (userId, updates) => {
+    if (db) {
+      await setDoc(doc(db, 'users', userId), updates, { merge: true });
+      return;
+    }
+    setUsers((previous) => {
+      const next = previous.map((user) => (user.id === userId ? { ...user, ...updates } : user));
+      localStorage.setItem('rs_users', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const saveGroup = async (newGroup) => {
     if (db) {
       await setDoc(doc(db, 'groups', newGroup.id), newGroup);
@@ -208,6 +220,7 @@ export default function App() {
           onOpenGroup={(id) => { setCurrentGroupId(id); setCurrentView('group'); }}
           onCreateGroup={() => setCurrentView('create_group')}
           onJoinGroup={() => setCurrentView('join_group')}
+          onUpdateUser={updateUser}
         />
       ) : currentView === 'create_group' ? (
         <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />

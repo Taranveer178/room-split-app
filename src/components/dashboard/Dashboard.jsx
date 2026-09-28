@@ -1,19 +1,28 @@
-import { useState, useEffect } from 'react';
-import { ChevronRight, LogOut, Plus, UserPlus, Users, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  LogOut, Plus, UserPlus, Users, Download, 
+  Bell, User, ChevronRight, Lock, Mail, UserCircle
+} from 'lucide-react';
+import { updateProfile, updateEmail } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebase';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
-import { Card } from '../common/UI';
+import { Card, Button, Input, NavItem } from '../common/UI';
 import { requestNotificationPermission } from '../../utils/notifications';
 
-export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinGroup }) {
+export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, showToast }) {
+  const [activeTab, setActiveTab] = useState('groups');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  
   const myGroups = groups.filter((group) => group.members && group.members.includes(user.id));
 
-useEffect(() => {
-  if (user?.id) {
-    requestNotificationPermission(user);
-  }
-}, [user?.id]);
+  // Request notification permissions when user logs in
+  useEffect(() => {
+    if (user?.id) {
+      requestNotificationPermission(user);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -37,83 +46,351 @@ useEffect(() => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10 sticky top-0">
+    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
+      {/* Sticky Header */}
+      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-30 flex-shrink-0">
         <div className="flex items-center gap-3">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-9 h-9 rounded-xl object-contain shadow-sm" />
-          <span className="text-xl font-bold text-slate-800">RoomSplit</span>
+          <span className="text-xl font-bold text-slate-900">RoomSplit</span>
         </div>
-        <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 rounded-full" title="Log out">
+        <button 
+          onClick={onLogout} 
+          className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 rounded-full" 
+          title="Log out"
+        >
           <LogOut size={20} />
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-5 pb-24">
-        {/* PWA Android Install Banner */}
-        {showInstallBanner && (
-          <div className="mb-6 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-4 rounded-2xl shadow-md flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                <Download size={22} />
+      {/* Main Scrollable Area */}
+      <main className="flex-1 overflow-y-auto pb-24 relative">
+        
+        {/* ============================== */}
+        {/* TAB 1: GROUPS (Dashboard Home) */}
+        {/* ============================== */}
+        {activeTab === 'groups' && (
+          <div className="p-5 animate-in fade-in duration-200">
+            {showInstallBanner && (
+              <div className="mb-6 bg-slate-900 text-white p-4 rounded-2xl shadow-md flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                    <Download size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm">Install App</h3>
+                    <p className="text-xs text-slate-300">Add to home screen for quick access.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleInstallClick}
+                  className="bg-white text-slate-900 font-bold text-xs px-4 py-2 rounded-xl shadow active:scale-95 transition-transform"
+                >
+                  Install
+                </button>
               </div>
-              <div>
-                <h3 className="font-bold text-sm">Install RoomSplit</h3>
-                <p className="text-xs text-indigo-100">Add to your home screen for quick access.</p>
+            )}
+
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-slate-900">Hi, {user.username}!</h1>
+              <p className="text-slate-500 mt-1 text-sm">Manage your shared spaces.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              <button onClick={onCreateGroup} className="flex flex-col items-center justify-center p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700 active:scale-95 transition-all">
+                <Plus size={24} className="mb-2" />
+                <span className="font-semibold text-sm">Create Group</span>
+              </button>
+              <button onClick={onJoinGroup} className="flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl text-slate-700 active:scale-95 transition-all shadow-sm">
+                <UserPlus size={24} className="mb-2" />
+                <span className="font-semibold text-sm">Join Group</span>
+              </button>
+            </div>
+
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Your Groups</h2>
+            
+            {myGroups.length === 0 ? (
+              <div className="text-center py-10 bg-white border border-dashed border-slate-300 rounded-3xl">
+                <Users size={32} className="mx-auto text-slate-300 mb-3" />
+                <p className="text-slate-500 font-medium text-sm">You aren't in any groups yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myGroups.map((group) => (
+                  <Card key={group.id} onClick={() => onOpenGroup(group.id)} className="p-4 hover:border-slate-300 transition-colors cursor-pointer">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-xl">
+                          {group.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base">{group.name}</h3>
+                          <p className="text-slate-500 text-xs mt-0.5">{group.members.length} Members</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={20} className="text-slate-300" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================== */}
+        {/* TAB 2: IN-APP NOTIFICATIONS    */}
+        {/* ============================== */}
+        {activeTab === 'notifications' && (
+          <div className="p-5 animate-in fade-in duration-200">
+            <h1 className="text-2xl font-bold text-slate-900 mb-6">Notifications</h1>
+            
+            <div className="space-y-3">
+              <div className="flex flex-col items-center justify-center text-center px-6 pt-16">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <Bell size={28} className="text-slate-400" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">All caught up!</h3>
+                <p className="text-slate-500 text-sm mt-1">
+                  You have no new notifications right now.
+                </p>
               </div>
             </div>
-            <button 
-              onClick={handleInstallClick}
-              className="bg-white text-indigo-700 font-semibold text-xs px-4 py-2.5 rounded-xl shadow active:scale-95 transition-transform"
-            >
-              Install
-            </button>
           </div>
         )}
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">Hi, {user.username}!</h1>
-          <p className="text-slate-500 mt-1">Here are your shared groups.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          <button onClick={onCreateGroup} className="flex flex-col items-center justify-center p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700 active:bg-indigo-100 transition-colors">
-            <Plus size={26} className="mb-2" />
-            <span className="font-semibold text-sm">Create Group</span>
-          </button>
-          <button onClick={onJoinGroup} className="flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl text-slate-700 active:bg-slate-50 transition-colors shadow-sm">
-            <UserPlus size={26} className="mb-2" />
-            <span className="font-semibold text-sm">Join Group</span>
-          </button>
-        </div>
-
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Your Groups</h2>
-        
-        {myGroups.length === 0 ? (
-          <div className="text-center py-10 bg-white border border-dashed border-slate-300 rounded-3xl">
-            <Users size={32} className="mx-auto text-slate-300 mb-3" />
-            <p className="text-slate-500 font-medium">You aren't in any groups yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {myGroups.map((group) => (
-              <Card key={group.id} onClick={() => onOpenGroup(group.id)} className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-xl">
-                      {group.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 text-base">{group.name}</h3>
-                      <p className="text-slate-500 text-xs mt-0.5">{group.members.length} Members</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={22} className="text-slate-300" />
-                </div>
-              </Card>
-            ))}
-          </div>
+        {/* ============================== */}
+        {/* TAB 3: USER PROFILE SETTINGS   */}
+        {/* ============================== */}
+        {activeTab === 'profile' && (
+          <ProfileTab user={user} onUpdateUser={onUpdateUser} showToast={showToast} />
         )}
       </main>
+
+      {/* Main Dashboard Bottom Navigation */}
+      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex justify-around items-center h-16">
+          <NavItem 
+            icon={Users} 
+            label="Groups" 
+            isActive={activeTab === 'groups'} 
+            onClick={() => setActiveTab('groups')} 
+          />
+          <NavItem 
+            icon={Bell} 
+            label="Activity" 
+            isActive={activeTab === 'notifications'} 
+            onClick={() => setActiveTab('notifications')} 
+          />
+          <NavItem 
+            icon={User} 
+            label="Profile" 
+            isActive={activeTab === 'profile'} 
+            onClick={() => setActiveTab('profile')} 
+          />
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+
+/* ========================================= */
+/* PROFILE TAB COMPONENT (Internal)          */
+/* ========================================= */
+function ProfileTab({ user, onUpdateUser, showToast }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(user.username || '');
+  const [email, setEmail] = useState(auth.currentUser?.email || '');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [localSuccess, setLocalSuccess] = useState('');
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setLocalError('');
+    setLocalSuccess('');
+    setLoading(true);
+    
+    try {
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) throw new Error("No authenticated user found.");
+
+      if (password.trim() && password.length < 6) {
+        throw new Error("New password must be at least 6 characters long.");
+      }
+
+      // 1. Update Name in Auth & Firestore
+      if (name.trim() !== user.username) {
+        await updateProfile(firebaseUser, { displayName: name.trim() });
+        await updateDoc(doc(db, 'users', user.id), { username: name.trim() });
+      }
+
+      // 2. Update Email safely
+      if (email.trim() && email.trim() !== firebaseUser.email) {
+        try {
+          await updateEmail(firebaseUser, email.trim());
+        } catch (emailErr) {
+          if (emailErr.code === 'auth/operation-not-allowed') {
+            throw new Error("Firebase requires email verification to change emails. Please update your Firebase Console settings.");
+          }
+          throw emailErr; // Throw other errors to the main catch block
+        }
+        await updateDoc(doc(db, 'users', user.id), { email: email.trim() });
+      }
+
+      // 3. Update Password
+      if (password.trim()) {
+        await onUpdateUser(user.id, { password });
+        setPassword(''); 
+      }
+
+      // Safe toast call + local success message
+      setLocalSuccess("Profile updated successfully!");
+      if (typeof showToast === 'function') {
+        showToast("Profile updated successfully!");
+      }
+      setIsEditing(false);
+      
+    } catch (err) {
+      console.error("Profile update error:", err);
+      
+      if (err.code === 'auth/requires-recent-login') {
+        setLocalError("For security, please log out and log back in before changing your password or email.");
+      } else if (err.code === 'auth/invalid-email') {
+        setLocalError("The email address is not valid.");
+      } else if (err.code === 'auth/email-already-in-use') {
+        setLocalError("This email is already registered to another account.");
+      } else {
+        setLocalError(err.message || "Failed to update profile.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = () => {
+    return (user.username || 'U').charAt(0).toUpperCase();
+  };
+
+  return (
+    <div className="p-5 animate-in fade-in duration-200 pb-12">
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">Your Profile</h1>
+
+      {localSuccess && !isEditing && (
+        <div className="mb-4 bg-emerald-50 text-emerald-700 p-3.5 rounded-xl text-sm flex items-center gap-2.5 border border-emerald-100">
+          <span className="flex-shrink-0">✅</span>
+          <p className="font-medium">{localSuccess}</p>
+        </div>
+      )}
+
+      {!isEditing ? (
+        // --- View Mode ---
+        <div className="flex flex-col items-center text-center bg-white p-8 rounded-3xl border border-slate-100 shadow-sm animate-in zoom-in-95 duration-200">
+          <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-4xl mb-4 shadow-inner">
+            {getInitials()}
+          </div>
+          
+          <h2 className="text-xl font-bold text-slate-900">{user.username}</h2>
+          
+          <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-1 mb-6">
+            <Mail size={14} />
+            <span>{auth.currentUser?.email || 'No email set'}</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-6 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+            <Lock size={14} className="text-slate-400" />
+            <span>Password: ••••••••</span>
+          </div>
+
+          <Button onClick={() => {
+            setIsEditing(true);
+            setLocalSuccess('');
+            setLocalError('');
+          }} className="w-full max-w-xs h-12 text-sm">
+            Edit Profile
+          </Button>
+        </div>
+      ) : (
+        // --- Edit Mode ---
+        <form onSubmit={handleUpdateProfile} className="space-y-4 animate-in slide-in-from-bottom-4 duration-200">
+          
+          {localError && (
+            <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm flex items-start gap-2.5 border border-red-100">
+              <span className="mt-0.5 flex-shrink-0">⚠️</span>
+              <p className="font-medium leading-snug">{localError}</p>
+            </div>
+          )}
+
+          <Card className="p-4 bg-white space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <UserCircle size={16} className="text-slate-400" />
+                Display Name
+              </label>
+              <Input 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                placeholder="Your Name" 
+                required 
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Mail size={16} className="text-slate-400" />
+                Email Address
+              </label>
+              <Input 
+                type="email"
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder="your@email.com" 
+              />
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <Lock size={16} className="text-slate-400" />
+              New Password
+            </label>
+            <Input 
+              type="password"
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="Leave blank to keep current" 
+              minLength={6}
+            />
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              * Must be at least 6 characters.
+            </p>
+          </Card>
+
+          <div className="flex gap-3 pt-2">
+            <Button 
+              type="button" 
+              variant="secondary"
+              className="flex-1 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700"
+              onClick={() => {
+                setIsEditing(false);
+                setLocalError('');
+                setName(user.username || '');
+                setEmail(auth.currentUser?.email || '');
+                setPassword('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              className="flex-1 h-12 text-base" 
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
