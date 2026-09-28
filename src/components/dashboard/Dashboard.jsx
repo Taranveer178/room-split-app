@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, Plus, UserPlus, Users, Download, 
-  Bell, User, ChevronRight, Lock, Mail, UserCircle
+  Bell, User, ChevronRight, Lock, Mail, UserCircle, Trash2
 } from 'lucide-react';
 import { updateProfile, updateEmail } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -52,6 +52,28 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
     }
     setDeferredPrompt(null);
   };
+
+  const handleClearAllNotifications = async () => {
+  if (!notifications.length) return;
+  
+  try {
+    const batch = writeBatch(db);
+    notifications.forEach((n) => {
+      if (n.id) {
+        batch.delete(doc(db, 'notifications', n.id));
+      }
+    });
+    await batch.commit();
+    if (typeof showToast === 'function') {
+      showToast('Notifications cleared');
+    }
+  } catch (err) {
+    console.error('Failed to clear notifications:', err);
+    if (typeof showToast === 'function') {
+      showToast('Failed to clear notifications');
+    }
+  }
+};
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
