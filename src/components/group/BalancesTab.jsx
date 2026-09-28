@@ -1,19 +1,28 @@
-import { useMemo } from 'react';
-import { CheckCircle2, Send } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle2, Send, Copy, ExternalLink, ChevronDown } from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
 import { Card } from '../common/UI';
 
 export default function BalancesTab({ expenses, group, currentUser, getUserName }) {
   const { balances, settlements } = useMemo(() => calculateSettlements(expenses, group.members), [expenses, group.members]);
   const myBalance = balances[currentUser.id] || 0;
-  
+  const [copiedIndex, setCopiedIndex] = useState(null);
+
   const DEFAULT_UPI_ID = "staranveer178@okicici";
+
+  const handleCopyUPI = (amount, idx) => {
+    navigator.clipboard.writeText(DEFAULT_UPI_ID);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   return (
     <div className="p-4 pb-12 space-y-5">
       <Card className="p-5 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white border-none shadow-md">
         <h2 className="text-indigo-100 font-medium mb-1 text-xs uppercase tracking-wider">Your Balance</h2>
-        <div className="text-3xl font-bold tracking-tight">{myBalance < 0 ? '-' : ''}₹{Math.abs(myBalance).toFixed(2)}</div>
+        <div className="text-3xl font-bold tracking-tight">
+          {myBalance < 0 ? '-' : ''}₹{Math.abs(myBalance).toFixed(2)}
+        </div>
         <p className="mt-2 text-indigo-100 text-xs">
           {myBalance > 0 ? 'You are owed money in total.' : myBalance < 0 ? 'You owe money in total.' : 'You are settled up!'}
         </p>
@@ -35,22 +44,33 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
               const iAmTo = settlement.to === currentUser.id;
               const fromName = iAmFrom ? 'You' : getUserName(settlement.from);
               const toName = iAmTo ? 'You' : getUserName(settlement.to);
-              
               const amountStr = settlement.amount.toFixed(2);
-              const note = encodeURIComponent(`RoomSplit Settlement to ${toName}`);
-              
-              // Direct Intent URL targeted specifically to open Google Pay package if available, 
-              // falling back to general UPI if GPay isn't installed.
-              const gpayIntentUrl = `intent://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
-              
-              // Standard fallback UPI link for iOS / Web browsers
-              const standardUpiLink = `upi://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              const note = encodeURIComponent(`RoomSplit to ${toName}`);
 
-              const handlePayClick = (e) => {
-                e.preventDefault();
-                // Check if Android to use intent package, otherwise use standard upi link
+              // 1. Google Pay direct protocol scheme
+              const gpayDirectUrl = `gpay://upi/pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              
+              // 2. PhonePe direct scheme
+              const phonePeUrl = `phonepe://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              
+              // 3. Paytm direct scheme
+              const paytmUrl = `paytmmp://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+
+              // 4. Android Strict Chrome Intent pointing explicitly to Google Pay's package
+              const androidGPayIntent = `intent://upi/pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
+
+              const handleOpenGPay = () => {
                 const isAndroid = /Android/i.test(navigator.userAgent);
-                window.location.href = isAndroid ? gpayIntentUrl : standardUpiLink;
+                if (isAndroid) {
+                  // Direct trigger to avoid browser protocol capture
+                  window.location.href = androidGPayIntent;
+                  setTimeout(() => {
+                    window.location.href = gpayDirectUrl;
+                  }, 500);
+                } else {
+                  // iOS / Web scheme
+                  window.location.href = gpayDirectUrl;
+                }
               };
 
               return (
@@ -68,13 +88,34 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
                   </div>
 
                   {iAmFrom && (
-                    <div className="pt-1">
-                      <button 
-                        onClick={handlePayClick}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all shadow-sm cursor-pointer"
+                    <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Primary GPay Button */}
+                        <button
+                          onClick={handleOpenGPay}
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                        >
+                          <Send size={14} />
+                          <span>Google Pay</span>
+                        </button>
+
+                        {/* PhonePe Alternative */}
+                        <a
+                          href={phonePeUrl}
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-purple-600 text-white rounded-xl text-xs font-semibold hover:bg-purple-700 active:scale-95 transition-all shadow-sm"
+                        >
+                          <ExternalLink size={14} />
+                          <span>PhonePe</span>
+                        </a>
+                      </div>
+
+                      {/* Manual Copy Fallback */}
+                      <button
+                        onClick={() => handleCopyUPI(amountStr, index)}
+                        className="flex items-center justify-center gap-1.5 py-2 text-slate-500 hover:text-slate-700 text-xs font-medium bg-white border border-slate-200/80 rounded-xl active:bg-slate-50 transition-colors"
                       >
-                        <Send size={16} />
-                        Pay via Google Pay
+                        <Copy size={13} />
+                        <span>{copiedIndex === index ? 'UPI ID Copied!' : `Copy UPI (${DEFAULT_UPI_ID})`}</span>
                       </button>
                     </div>
                   )}
