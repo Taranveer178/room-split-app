@@ -1,7 +1,12 @@
-import { useMemo, useState } from 'react';
-import { CheckCircle2, Send, Copy, ExternalLink, AlertTriangle, CheckCheck, Sparkles, ArrowRightLeft, PlusCircle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { 
+  CheckCircle2, Send, Copy, AlertTriangle, 
+  CheckCheck, Sparkles, ArrowRightLeft, 
+  PlusCircle, ChevronDown, ChevronUp, Receipt, 
+  User
+} from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
-import { Card, Button, Input } from '../common/UI';
+import { Card, Button } from '../common/UI';
 
 export default function BalancesTab({ 
   expenses, 
@@ -18,6 +23,8 @@ export default function BalancesTab({
   
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [confirmSettlement, setConfirmSettlement] = useState(null);
+  const [breakdownData, setBreakdownData] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showOptimized, setShowOptimized] = useState(true);
 
@@ -27,19 +34,19 @@ export default function BalancesTab({
 
   // Calculate Raw Pairwise (Exact) Settlements
   const rawSettlements = useMemo(() => {
-    const owes = {};
+    const debtMatrix = {};
     group.members.forEach(m1 => {
-      owes[m1] = {};
-      group.members.forEach(m2 => owes[m1][m2] = 0);
+      debtMatrix[m1] = {};
+      group.members.forEach(m2 => debtMatrix[m1][m2] = 0);
     });
 
     expenses.forEach(exp => {
       const payer = exp.paidBy;
-      if (!payer || !exp.splits) return;
+      if (!payer || !exp.splits || exp.category === 'Settlement') return;
       Object.entries(exp.splits).forEach(([participant, shareAmount]) => {
         const share = parseFloat(shareAmount) || 0;
-        if (participant !== payer && share > 0 && owes[participant]) {
-          owes[participant][payer] += share;
+        if (participant !== payer && share > 0 && debtMatrix[participant]) {
+          debtMatrix[participant][payer] += share;
         }
       });
     });
@@ -54,7 +61,7 @@ export default function BalancesTab({
         if (processed.has(pairKey)) return;
         processed.add(pairKey);
 
-        const net = owes[m1][m2] - owes[m2][m1];
+        const net = debtMatrix[m1][m2] - debtMatrix[m2][m1];
         if (net > 0.05) pairwise.push({ from: m1, to: m2, amount: net });
         else if (net < -0.05) pairwise.push({ from: m2, to: m1, amount: Math.abs(net) });
       });
@@ -72,7 +79,6 @@ export default function BalancesTab({
 
   const sendPaymentNotification = async (recipientId, type, message) => {
     if (!onSendNotification || recipientId === currentUser.id) return;
-
     const createdAt = new Date().toISOString();
     const senderName = currentUser.username || getUserName(currentUser.id);
     await onSendNotification([{
@@ -95,25 +101,27 @@ export default function BalancesTab({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // Records a settlement transaction to properly deduct the balances
+  // Robust Settlement Record
   const recordSettlement = async (fromId, toId, amountStr, titlePrefix = "Settlement") => {
     if (!onSaveExpense) throw new Error("Save handler missing");
 
     const toName = toId === currentUser.id ? 'You' : getUserName(toId);
     const fromName = fromId === currentUser.id ? 'You' : getUserName(fromId);
 
+    const settlementSplits = {};
+    group.members.forEach(m => settlementSplits[m] = "0");
+    settlementSplits[toId] = parseFloat(amountStr).toFixed(2);
+
     const settlementTransaction = {
       id: `exp_settle_${Date.now()}`,
       groupId: group.id,
       title: `${titlePrefix}: ${fromName} → ${toName}`,
-      totalAmount: amountStr,
-      paidBy: fromId, // The person who gave the money
+      totalAmount: parseFloat(amountStr).toFixed(2),
+      paidBy: fromId,
       paymentMethod: 'UPI',
       category: 'Settlement',
       date: new Date().toISOString().split('T')[0],
-      splits: {
-        [toId]: amountStr // The person who received the money takes the "expense" share
-      },
+      splits: settlementSplits,
       isSettlement: true,
       createdBy: currentUser.id,
       createdAt: new Date().toISOString(),
@@ -122,22 +130,21 @@ export default function BalancesTab({
     await onSaveExpense(settlementTransaction);
   };
 
-  // Handler for Receiver clicking "Mark Settled"
+  // Receiver verifies payment
   const handleConfirmReceived = async () => {
     setLoading(true);
     try {
-      // confirmSettlement.from is the person who owed the money
-      // confirmSettlement.to is the current user (receiver)
-      await recordSettlement(confirmSettlement.from, confirmSettlement.to, confirmSettlement.amount.toFixed(2));
+      await recordSettlement(confirmSettlement.from, confirmSettlement.to, confirmSettlement.amount);
       const receiverName = currentUser.username || getUserName(currentUser.id);
       await sendPaymentNotification(
         confirmSettlement.from,
         'SETTLEMENT_CONFIRMED',
-        `${receiverName} confirmed receiving ₹${confirmSettlement.amount.toFixed(2)} from you.`,
+        `${receiverName} confirmed receiving ₹${confirmSettlement.amount.toFixed(2)} from you.`
       );
       
       if (typeof showToast === 'function') showToast(`Payment received and balance cleared!`);
       setConfirmSettlement(null);
+      setExpandedId(null);
     } catch (err) {
       console.error(err);
       if (typeof showToast === 'function') showToast('Failed to record settlement', 'error');
@@ -146,291 +153,359 @@ export default function BalancesTab({
     }
   };
 
-  // Custom Quick Pay Handlers
-  const handleCustomGPay = () => {
+  // Custom Quick Pay
+  const handleCustomPayment = async (isRecordingOnly) => {
     const amt = parseFloat(customAmount);
     if (!customPayee || isNaN(amt) || amt <= 0) {
-      if (typeof showToast === 'function') showToast('Please select a roommate and enter a valid amount', 'error');
+      if (typeof showToast === 'function') showToast('Select a roommate and valid amount', 'error');
       return;
     }
 
-    const payeeName = getUserName(customPayee);
-    const payeeUpi = getMemberUpi(customPayee) || FALLBACK_DEFAULT_UPI;
-    const amountStr = amt.toFixed(2);
-    const note = encodeURIComponent(`RoomSplit Payment from ${currentUser.username}`);
+    if (!isRecordingOnly) {
+      const payeeName = getUserName(customPayee);
+      const payeeUpi = getMemberUpi(customPayee) || FALLBACK_DEFAULT_UPI;
+      const amountStr = amt.toFixed(2);
+      const note = encodeURIComponent(`RoomSplit Payment`);
+      const gpayDirectUrl = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(payeeName)}&am=${amountStr}&cu=INR&tn=${note}`;
+      const androidGPayIntent = `intent://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(payeeName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
 
-    const gpayDirectUrl = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(payeeName)}&am=${amountStr}&cu=INR&tn=${note}`;
-    const androidGPayIntent = `intent://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(payeeName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
-
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
-      window.location.href = androidGPayIntent;
-      setTimeout(() => window.location.href = gpayDirectUrl, 500);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        window.location.href = androidGPayIntent;
+        setTimeout(() => window.location.href = gpayDirectUrl, 500);
+      } else {
+        window.location.href = gpayDirectUrl;
+      }
     } else {
-      window.location.href = gpayDirectUrl;
+      setLoading(true);
+      try {
+        await recordSettlement(currentUser.id, customPayee, amt.toFixed(2), "Quick Pay");
+        const payerName = currentUser.username || getUserName(currentUser.id);
+        await sendPaymentNotification(
+          customPayee,
+          'PAYMENT_RECORDED',
+          `${payerName} recorded a payment of ₹${amt.toFixed(2)} to you.`
+        );
+        if (typeof showToast === 'function') showToast(`Payment recorded successfully!`);
+        setCustomPayee('');
+        setCustomAmount('');
+      } catch (err) {
+        console.error(err);
+        if (typeof showToast === 'function') showToast('Failed to record custom payment', 'error');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleCustomRecordEntry = async () => {
-    const amt = parseFloat(customAmount);
-    if (!customPayee || isNaN(amt) || amt <= 0) {
-      if (typeof showToast === 'function') showToast('Please select a roommate and enter a valid amount', 'error');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Current User pays the selected Payee
-      await recordSettlement(currentUser.id, customPayee, amt.toFixed(2), "Custom Payment");
-      const payerName = currentUser.username || getUserName(currentUser.id);
-      await sendPaymentNotification(
-        customPayee,
-        'PAYMENT_RECORDED',
-        `${payerName} recorded a payment of ₹${amt.toFixed(2)} to you.`,
-      );
-      if (typeof showToast === 'function') showToast(`Payment to ${getUserName(customPayee)} recorded successfully!`);
-      
-      setCustomPayee('');
-      setCustomAmount('');
-    } catch (err) {
-      console.error(err);
-      if (typeof showToast === 'function') showToast('Failed to record custom payment', 'error');
-    } finally {
-      setLoading(false);
-    }
+  // Calculate breakdown for exact settlements
+  const getBreakdownForPair = (userA, userB) => {
+    return expenses.filter(exp => {
+      if (exp.category === 'Settlement') return false;
+      const aPaid = exp.paidBy === userA;
+      const bPaid = exp.paidBy === userB;
+      const aShare = parseFloat(exp.splits?.[userA]) || 0;
+      const bShare = parseFloat(exp.splits?.[userB]) || 0;
+      return (aPaid && bShare > 0) || (bPaid && aShare > 0);
+    });
   };
 
   return (
-    <div className="p-4 pb-28 space-y-6 relative min-h-full">
-      {/* Header Total Balance Banner */}
-      <Card className="p-5 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white border-none shadow-md">
-        <h2 className="text-indigo-100 font-medium mb-1 text-xs uppercase tracking-wider">Your Balance</h2>
-        <div className="text-3xl font-bold tracking-tight font-mono">
+    <div className="p-4 pb-28 space-y-5 relative min-h-full bg-slate-50">
+      
+      {/* Header Balance Card */}
+      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[24px] p-6 text-white shadow-xl border border-indigo-900/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+        <h2 className="text-indigo-200/80 font-semibold mb-1 text-[11px] uppercase tracking-widest flex items-center gap-2">
+          Your Net Balance
+        </h2>
+        <div className="text-4xl font-black tracking-tight font-mono my-2">
           {myBalance < 0 ? '-' : ''}₹{Math.abs(myBalance).toFixed(2)}
         </div>
-        <p className="mt-2 text-indigo-100 text-xs">
-          {myBalance > 0 ? 'You are owed money in total.' : myBalance < 0 ? 'You owe money in total.' : 'You are settled up!'}
-        </p>
-      </Card>
+        <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/5">
+          <div className={`w-2 h-2 rounded-full ${myBalance > 0 ? 'bg-emerald-400' : myBalance < 0 ? 'bg-rose-400' : 'bg-slate-400'}`} />
+          <p className="text-xs font-medium text-slate-100">
+            {myBalance > 0 ? 'You need to receive money' : myBalance < 0 ? 'You need to pay' : 'You are completely settled'}
+          </p>
+        </div>
+      </div>
       
-      {/* PENDING SETTLEMENTS LIST */}
+      {/* SETTLEMENTS SECTION */}
       <div>
-        <div className="flex items-end justify-between mb-3 px-1">
+        <div className="flex items-end justify-between mb-4 px-1">
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Pending Settlements</h3>
-            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5 block">
-              {showOptimized ? 'Minimum Transactions' : 'Direct Balances'}
-            </span>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">Balances</h3>
           </div>
-
-          <div className="flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/50">
+          <div className="flex bg-slate-200/60 p-1 rounded-xl">
             <button 
-              onClick={() => setShowOptimized(true)}
+              onClick={() => { setShowOptimized(true); setExpandedId(null); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
-                showOptimized ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'
+                showOptimized ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Sparkles size={13} />
-              Smart
+              <Sparkles size={13} /> Smart
             </button>
             <button 
-              onClick={() => setShowOptimized(false)}
+              onClick={() => { setShowOptimized(false); setExpandedId(null); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
-                !showOptimized ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'
+                !showOptimized ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <ArrowRightLeft size={13} />
-              Exact
+              <ArrowRightLeft size={13} /> Exact
             </button>
           </div>
         </div>
         
         {displayedSettlements.length === 0 ? (
-          <Card className="p-8 text-center text-slate-500">
-            <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <p className="text-base font-bold text-slate-700">All Settled Up</p>
-            <p className="text-xs text-slate-400 mt-1">No outstanding balances remaining.</p>
-          </Card>
+          <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-sm">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 size={32} />
+            </div>
+            <p className="text-base font-bold text-slate-800">All Settled Up</p>
+            <p className="text-xs text-slate-500 mt-1">No outstanding balances remaining.</p>
+          </div>
         ) : (
           <div className="space-y-3">
             {displayedSettlements.map((settlement, index) => {
               const iAmFrom = settlement.from === currentUser.id;
               const iAmTo = settlement.to === currentUser.id;
               const isMySettlement = iAmFrom || iAmTo;
+              const isExpanded = expandedId === index;
               
               const fromName = iAmFrom ? 'You' : getUserName(settlement.from);
               const toName = iAmTo ? 'You' : getUserName(settlement.to);
-              const amountStr = settlement.amount.toFixed(2);
-              const note = encodeURIComponent(`RoomSplit to ${toName}`);
-
               const payeeUpi = getMemberUpi(settlement.to) || FALLBACK_DEFAULT_UPI;
               const hasCustomUpi = Boolean(getMemberUpi(settlement.to));
-
-              const gpayDirectUrl = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
-              const phonePeUrl = `phonepe://pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
-              const androidGPayIntent = `intent://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
-
-              const handleOpenGPay = () => {
-                const isAndroid = /Android/i.test(navigator.userAgent);
-                if (isAndroid) {
-                  window.location.href = androidGPayIntent;
-                  setTimeout(() => window.location.href = gpayDirectUrl, 500);
-                } else {
-                  window.location.href = gpayDirectUrl;
-                }
-              };
+              
+              let statusText = `${fromName} needs to pay ${toName}`;
+              let amountColor = 'text-slate-800';
+              let badgeColor = 'bg-slate-100 text-slate-600';
+              
+              if (iAmFrom) {
+                statusText = `You need to pay ${toName}`;
+                amountColor = 'text-rose-600';
+                badgeColor = 'bg-rose-50 text-rose-600 border border-rose-100';
+              } else if (iAmTo) {
+                statusText = `${fromName} needs to pay you`;
+                amountColor = 'text-emerald-600';
+                badgeColor = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+              }
 
               return (
-                <Card 
-                  key={index} 
-                  className={`p-4 flex flex-col gap-3 transition-all ${isMySettlement ? 'border-indigo-200 bg-indigo-50/30' : 'bg-white'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600 text-sm">
-                      <strong className="text-slate-800 font-semibold">{fromName}</strong> pays <strong className="text-slate-800 font-semibold">{toName}</strong>
-                    </span>
-                    <div className={`text-base font-bold font-mono ${iAmFrom ? 'text-rose-500' : iAmTo ? 'text-emerald-600' : 'text-slate-700'}`}>
-                      ₹{amountStr}
+                <div key={index} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200">
+                  {/* Collapsed Header Bar */}
+                  <div 
+                    onClick={() => setExpandedId(isExpanded ? null : index)}
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${badgeColor}`}>
+                        {iAmFrom ? toName.charAt(0).toUpperCase() : fromName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{statusText}</p>
+                        <p className={`text-sm font-bold font-mono mt-0.5 ${amountColor}`}>
+                          ₹{settlement.amount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                      {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </div>
                   </div>
 
-                  {/* If I OWE MONEY: Show Pay & Copy Options */}
-                  {iAmFrom && (
-                    <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-                      {!hasCustomUpi && (
-                        <div className="text-[11px] text-amber-600 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg">
-                          <AlertTriangle size={12} />
-                          <span>{toName} hasn't added a UPI ID yet.</span>
+                  {/* Expanded Actions Panel */}
+                  {isExpanded && (
+                    <div className="px-4 pb-4 pt-1 bg-slate-50/50 border-t border-slate-100">
+                      
+                      {/* Breakdown Button */}
+                      {!showOptimized && (
+                        <div className="flex justify-center mb-3 mt-2">
+                          <button 
+                            onClick={() => setBreakdownData({ from: settlement.from, to: settlement.to, amount: settlement.amount, fromName, toName })}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 bg-indigo-50/80 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+                          >
+                            <Receipt size={13} /> View expense breakdown
+                          </button>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button onClick={handleOpenGPay} className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 active:scale-95 transition-all shadow-xs">
-                          <Send size={13} />
-                          <span>Google Pay</span>
-                        </button>
-                        <a href={phonePeUrl} className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-purple-600 text-white rounded-xl text-xs font-semibold hover:bg-purple-700 active:scale-95 transition-all shadow-xs">
-                          <ExternalLink size={13} />
-                          <span>PhonePe</span>
-                        </a>
-                      </div>
-                      <button onClick={() => handleCopyUPI(payeeUpi, index)} className="flex items-center justify-center gap-1.5 py-2 text-slate-500 hover:text-slate-700 text-xs font-medium bg-white border border-slate-200/80 rounded-xl active:bg-slate-50 transition-colors">
-                        <Copy size={13} />
-                        <span>{copiedIndex === index ? 'UPI ID Copied!' : `Copy UPI (${payeeUpi})`}</span>
-                      </button>
-                    </div>
-                  )}
+                      {/* Pay Options (Sender) */}
+                      {iAmFrom && (
+                        <div className="space-y-2 mt-2">
+                          {!hasCustomUpi && (
+                            <div className="text-[11px] text-amber-600 flex items-start gap-1.5 bg-amber-50 px-3 py-2 rounded-xl mb-3">
+                              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                              <span className="leading-snug">{toName} hasn't linked a UPI ID yet. Using default fallback.</span>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => {
+                                const note = encodeURIComponent(`RoomSplit to ${toName}`);
+                                window.location.href = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${settlement.amount.toFixed(2)}&cu=INR&tn=${note}`;
+                              }}
+                              className="flex items-center justify-center gap-2 py-3 px-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 active:scale-[0.98] transition-all shadow-sm"
+                            >
+                              <Send size={14} /> Pay via GPay
+                            </button>
+                            <button
+                              onClick={() => handleCopyUPI(payeeUpi, index)}
+                              className="flex items-center justify-center gap-2 py-3 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
+                            >
+                              <Copy size={14} /> {copiedIndex === index ? 'Copied!' : 'Copy UPI ID'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
-                  {/* If I RECEIVE MONEY: Show the "Mark Settled" completion button */}
-                  {iAmTo && (
-                    <div className="pt-2 border-t border-slate-100/80 flex justify-end">
-                      <button
-                        onClick={() => setConfirmSettlement(settlement)}
-                        className="inline-flex items-center justify-center w-full gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2.5 rounded-xl border border-emerald-200/60 active:scale-95 transition-all"
-                      >
-                        <CheckCheck size={16} />
-                        <span>I have received ₹{amountStr} from {fromName}</span>
-                      </button>
+                      {/* Receive Options (Receiver) */}
+                      {iAmTo && (
+                        <div className="mt-2">
+                          <button
+                            onClick={() => setConfirmSettlement(settlement)}
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 active:scale-[0.98] transition-all shadow-sm shadow-emerald-200"
+                          >
+                            <CheckCheck size={16} strokeWidth={2.5} /> Confirm Payment Received
+                          </button>
+                        </div>
+                      )}
+
+                      {!isMySettlement && (
+                        <div className="text-center text-xs text-slate-400 py-2">
+                          You are not involved in this specific settlement.
+                        </div>
+                      )}
                     </div>
                   )}
-                </Card>
+                </div>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* CUSTOM QUICK PAYMENT SECTION */}
+      {/* QUICK PAY & RECORD MODULE */}
       <div className="mt-8 pt-6 border-t border-slate-200">
         <h3 className="text-sm font-bold text-slate-800 mb-3 px-1 flex items-center gap-1.5">
-          <PlusCircle size={16} className="text-indigo-600" />
-          Quick Pay & Record
+          <PlusCircle size={16} className="text-indigo-600" /> Quick Pay
         </h3>
-        <Card className="p-4 bg-white border border-slate-200 shadow-sm space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Need to pay a partial amount? Select a roommate below, enter the amount, and record the entry to immediately reduce your balance.
-          </p>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Pay To</label>
+          <div className="flex gap-2 items-center">
+            {/* Payee Selection Dropdown */}
+            <div className="relative flex-1">
+              <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <select 
                 value={customPayee} 
                 onChange={(e) => setCustomPayee(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm font-medium border border-slate-200 rounded-xl bg-slate-50 outline-none text-slate-700"
+                className="w-full h-11 pl-10 pr-3 text-xs font-semibold border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:border-indigo-400 transition-colors"
               >
-                <option value="">Select member...</option>
+                <option value="" className="font-normal">Select payee...</option>
                 {group.members.filter(m => m !== currentUser.id).map(memberId => (
-                  <option key={memberId} value={memberId}>
-                    {getUserName(memberId)}
-                  </option>
+                  <option key={memberId} value={memberId}>{getUserName(memberId)}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount</label>
-              <Input 
+
+            {/* Custom Amount Raw Input with Currency Prefix */}
+            <div className="relative w-36 flex-shrink-0">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+              <input 
                 type="number" 
-                placeholder="₹0.00" 
+                placeholder="0.00" 
                 min="1"
                 step="0.01"
                 value={customAmount} 
                 onChange={(e) => setCustomAmount(e.target.value)} 
-                className="h-10 text-sm font-mono font-bold"
+                className="w-full h-11 pl-7 pr-3 text-sm font-mono font-bold border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none focus:border-indigo-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           </div>
 
+          {/* Action Buttons with Icons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button 
+            <button 
               type="button"
-              variant="secondary"
-              onClick={handleCustomGPay}
-              className="py-2.5 text-xs font-bold border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+              onClick={() => handleCustomPayment(false)}
+              className="h-10 text-xs font-bold rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-2xs"
             >
-              Pay via GPay
-            </Button>
-            <Button 
+              <Send size={13} className="text-indigo-600" />
+              <span>Pay via GPay</span>
+            </button>
+            <button 
               type="button"
-              onClick={handleCustomRecordEntry}
+              onClick={() => handleCustomPayment(true)}
               disabled={loading}
-              className="py-2.5 text-xs font-bold"
+              className="h-10 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
             >
-              {loading ? 'Saving...' : 'Record Entry'}
-            </Button>
+              <CheckCircle2 size={13} className="text-emerald-400" />
+              <span>{loading ? 'Saving...' : 'Record Entry'}</span>
+            </button>
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Confirmation Modal for Receiving Balances */}
-      {confirmSettlement && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-xs w-full p-5 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150 text-center">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 size={24} />
+      {/* MODAL: Breakdown Receipt */}
+      {breakdownData && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:items-center sm:justify-center animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+            
+            <div className="p-5 border-b border-slate-100 bg-slate-50 rounded-t-3xl">
+              <h3 className="text-sm font-bold text-slate-900">Expense Breakdown</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Why <strong className="text-slate-700">{breakdownData.fromName}</strong> needs to pay <strong className="text-slate-700">{breakdownData.toName}</strong> <strong className="font-mono text-slate-800">₹{breakdownData.amount.toFixed(2)}</strong>
+              </p>
             </div>
-            <h3 className="text-base font-bold text-slate-800 mb-1">Confirm Payment</h3>
-            <p className="text-slate-500 text-xs mb-4 leading-relaxed">
-              Confirm that you have received <strong className="text-slate-800 font-mono">₹{confirmSettlement.amount.toFixed(2)}</strong> from <strong className="text-slate-800">{getUserName(confirmSettlement.from)}</strong>?
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {getBreakdownForPair(breakdownData.from, breakdownData.to).map(exp => {
+                const isFromPaid = exp.paidBy === breakdownData.from;
+                const payerName = isFromPaid ? breakdownData.fromName : breakdownData.toName;
+                const borrowerName = isFromPaid ? breakdownData.toName : breakdownData.fromName;
+                const shareAmt = isFromPaid ? exp.splits[breakdownData.to] : exp.splits[breakdownData.from];
+
+                return (
+                  <div key={exp.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-xs">
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="text-sm font-bold text-slate-800">{exp.title}</span>
+                      <span className="text-xs font-mono font-bold text-slate-600">₹{parseFloat(shareAmt).toFixed(2)}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 flex justify-between items-center">
+                      <span>{payerName} paid ₹{parseFloat(exp.totalAmount).toFixed(2)}</span>
+                      <span>({borrowerName}'s share)</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white sm:rounded-b-3xl">
+              <Button onClick={() => setBreakdownData(null)} variant="secondary" className="w-full py-3 text-xs">
+                Close Breakdown
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Confirm Payment Received */}
+      {confirmSettlement && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[24px] max-w-xs w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100/50">
+              <CheckCircle2 size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Confirm Receipt</h3>
+            <p className="text-slate-500 text-sm mb-5 leading-relaxed">
+              Verify you received <strong className="text-slate-900 font-mono text-base">₹{confirmSettlement.amount.toFixed(2)}</strong> from <strong className="text-slate-800">{getUserName(confirmSettlement.from)}</strong>.
             </p>
-            <p className="text-[11px] text-slate-400 mb-5 bg-slate-50 p-2 rounded-xl">
-              This will automatically deduct the amount from their pending balance.
-            </p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <Button 
-                variant="secondary" 
-                onClick={() => setConfirmSettlement(null)} 
-                className="py-2.5 text-xs rounded-xl"
-                disabled={loading}
-              >
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="secondary" onClick={() => setConfirmSettlement(null)} disabled={loading} className="py-2.5 text-xs rounded-xl">
                 Cancel
               </Button>
-              <Button 
-                onClick={handleConfirmReceived} 
-                className="py-2.5 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Yes, I got it'}
+              <Button onClick={handleConfirmReceived} disabled={loading} className="py-2.5 text-xs rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm">
+                {loading ? 'Confirming...' : 'Yes, I got it'}
               </Button>
             </div>
           </div>
