@@ -55,7 +55,8 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
             expenses={expenses} 
             group={group} 
             currentUser={currentUser} 
-            getUserName={getUserName} 
+            getUserName={getUserName}
+            users={users} 
           />
         )}
 

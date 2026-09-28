@@ -222,12 +222,24 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
 /* ========================================= */
 function ProfileTab({ user, onUpdateUser, showToast }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(user.username || '');
+  const [name, setName] = useState(user?.username || '');
   const [email, setEmail] = useState(auth.currentUser?.email || '');
+  const [upiId, setUpiId] = useState(user?.upiId || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
   const [localSuccess, setLocalSuccess] = useState('');
+
+  // Keep state in sync whenever user object updates from Firebase
+  useEffect(() => {
+    if (user) {
+      setName(user.username || '');
+      setUpiId(user.upiId || '');
+    }
+    if (auth.currentUser?.email) {
+      setEmail(auth.currentUser.email);
+    }
+  }, [user]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -243,32 +255,50 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
         throw new Error("New password must be at least 6 characters long.");
       }
 
-      // 1. Update Name in Auth & Firestore
-      if (name.trim() !== user.username) {
+      const firestoreUpdates = {};
+
+      // 1. Update Display Name
+      if (name.trim() && name.trim() !== user.username) {
         await updateProfile(firebaseUser, { displayName: name.trim() });
-        await updateDoc(doc(db, 'users', user.id), { username: name.trim() });
+        firestoreUpdates.username = name.trim();
       }
 
-      // 2. Update Email safely
+      // 2. Update UPI ID
+      if (upiId.trim() !== (user.upiId || '')) {
+        firestoreUpdates.upiId = upiId.trim();
+      }
+
+      // 3. Update Email safely
       if (email.trim() && email.trim() !== firebaseUser.email) {
         try {
           await updateEmail(firebaseUser, email.trim());
+          firestoreUpdates.email = email.trim();
         } catch (emailErr) {
           if (emailErr.code === 'auth/operation-not-allowed') {
             throw new Error("Firebase requires email verification to change emails. Please update your Firebase Console settings.");
           }
-          throw emailErr; // Throw other errors to the main catch block
+          throw emailErr;
         }
-        await updateDoc(doc(db, 'users', user.id), { email: email.trim() });
       }
 
-      // 3. Update Password
+      // Commit changes to Firestore and parent state
+      if (Object.keys(firestoreUpdates).length > 0) {
+        await updateDoc(doc(db, 'users', user.id), firestoreUpdates);
+        if (typeof onUpdateUser === 'function') {
+          await onUpdateUser(user.id, firestoreUpdates);
+        } else {
+          Object.assign(user, firestoreUpdates);
+        }
+      }
+
+      // 4. Update Password
       if (password.trim()) {
-        await onUpdateUser(user.id, { password });
+        if (typeof onUpdateUser === 'function') {
+          await onUpdateUser(user.id, { password });
+        }
         setPassword(''); 
       }
 
-      // Safe toast call + local success message
       setLocalSuccess("Profile updated successfully!");
       if (typeof showToast === 'function') {
         showToast("Profile updated successfully!");
@@ -293,7 +323,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
   };
 
   const getInitials = () => {
-    return (user.username || 'U').charAt(0).toUpperCase();
+    return (user?.username || 'U').charAt(0).toUpperCase();
   };
 
   return (
@@ -308,36 +338,49 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
       )}
 
       {!isEditing ? (
-        // --- View Mode ---
+        /* --- VIEW MODE --- */
         <div className="flex flex-col items-center text-center bg-white p-8 rounded-3xl border border-slate-100 shadow-sm animate-in zoom-in-95 duration-200">
           <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-4xl mb-4 shadow-inner">
             {getInitials()}
           </div>
           
-          <h2 className="text-xl font-bold text-slate-900">{user.username}</h2>
+          <h2 className="text-xl font-bold text-slate-900">{user?.username}</h2>
           
-          <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-1 mb-6">
+          <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-1 mb-4">
             <Mail size={14} />
             <span>{auth.currentUser?.email || 'No email set'}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-6 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-            <Lock size={14} className="text-slate-400" />
-            <span>Password: ••••••••</span>
+          {/* Read-Only UPI Display Badge */}
+          <div className="w-full max-w-xs flex items-center justify-between text-sm mb-3 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
+            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">UPI ID</span>
+            <span className="font-mono text-xs font-semibold text-slate-800 truncate max-w-[170px]">
+              {user?.upiId || 'Not set'}
+            </span>
           </div>
 
-          <Button onClick={() => {
-            setIsEditing(true);
-            setLocalSuccess('');
-            setLocalError('');
-          }} className="w-full max-w-xs h-12 text-sm">
+          <div className="w-full max-w-xs flex items-center justify-between text-sm text-slate-500 mb-6 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-1.5">
+              <Lock size={14} className="text-slate-400" />
+              <span>Password</span>
+            </div>
+            <span>••••••••</span>
+          </div>
+
+          <Button 
+            onClick={() => {
+              setIsEditing(true);
+              setLocalSuccess('');
+              setLocalError('');
+            }} 
+            className="w-full max-w-xs h-12 text-sm"
+          >
             Edit Profile
           </Button>
         </div>
       ) : (
-        // --- Edit Mode ---
+        /* --- EDIT MODE --- */
         <form onSubmit={handleUpdateProfile} className="space-y-4 animate-in slide-in-from-bottom-4 duration-200">
-          
           {localError && (
             <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm flex items-start gap-2.5 border border-red-100">
               <span className="mt-0.5 flex-shrink-0">⚠️</span>
@@ -346,6 +389,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
           )}
 
           <Card className="p-4 bg-white space-y-4">
+            {/* Display Name */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <UserCircle size={16} className="text-slate-400" />
@@ -358,7 +402,24 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
                 required 
               />
             </div>
+
+            {/* UPI ID Field */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">UPI</span>
+                UPI ID (to receive settlements)
+              </label>
+              <Input 
+                value={upiId} 
+                onChange={(e) => setUpiId(e.target.value)} 
+                placeholder="e.g. username@okhdfcbank or 9876543210@paytm" 
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Roommates will settle directly to this UPI address on Google Pay/PhonePe.
+              </p>
+            </div>
             
+            {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <Mail size={16} className="text-slate-400" />
@@ -373,6 +434,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
             </div>
           </Card>
 
+          {/* Change Password Card */}
           <Card className="p-4 bg-white">
             <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
               <Lock size={16} className="text-slate-400" />
@@ -398,8 +460,9 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
               onClick={() => {
                 setIsEditing(false);
                 setLocalError('');
-                setName(user.username || '');
+                setName(user?.username || '');
                 setEmail(auth.currentUser?.email || '');
+                setUpiId(user?.upiId || '');
                 setPassword('');
               }}
             >

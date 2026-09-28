@@ -1,17 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Send, Copy, ExternalLink, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Send, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
 import { Card } from '../common/UI';
 
-export default function BalancesTab({ expenses, group, currentUser, getUserName }) {
+export default function BalancesTab({ expenses, group, currentUser, getUserName, users = [] }) {
   const { balances, settlements } = useMemo(() => calculateSettlements(expenses, group.members), [expenses, group.members]);
   const myBalance = balances[currentUser.id] || 0;
   const [copiedIndex, setCopiedIndex] = useState(null);
 
-  const DEFAULT_UPI_ID = "staranveer178@okicici";
+  const FALLBACK_DEFAULT_UPI = "staranveer178@okicici";
 
-  const handleCopyUPI = (amount, idx) => {
-    navigator.clipboard.writeText(DEFAULT_UPI_ID);
+  // Helper to retrieve member's upiId
+  const getMemberUpi = (memberId) => {
+    const member = users.find(u => u.id === memberId);
+    return member?.upiId?.trim() || null;
+  };
+
+  const handleCopyUPI = (upiToCopy, idx) => {
+    navigator.clipboard.writeText(upiToCopy);
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
@@ -47,28 +53,23 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
               const amountStr = settlement.amount.toFixed(2);
               const note = encodeURIComponent(`RoomSplit to ${toName}`);
 
-              // 1. Google Pay direct protocol scheme
-              const gpayDirectUrl = `gpay://upi/pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
-              
-              // 2. PhonePe direct scheme
-              const phonePeUrl = `phonepe://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
-              
-              // 3. Paytm direct scheme
-              const paytmUrl = `paytmmp://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              // Target the payee's actual registered UPI ID
+              const payeeUpi = getMemberUpi(settlement.to) || FALLBACK_DEFAULT_UPI;
+              const hasCustomUpi = Boolean(getMemberUpi(settlement.to));
 
-              // 4. Android Strict Chrome Intent pointing explicitly to Google Pay's package
-              const androidGPayIntent = `intent://upi/pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
+              // App-specific URLs using the payee's UPI
+              const gpayDirectUrl = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              const phonePeUrl = `phonepe://pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+              const androidGPayIntent = `intent://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=gpay;package=com.google.android.apps.nbu.paisa.user;end`;
 
               const handleOpenGPay = () => {
                 const isAndroid = /Android/i.test(navigator.userAgent);
                 if (isAndroid) {
-                  // Direct trigger to avoid browser protocol capture
                   window.location.href = androidGPayIntent;
                   setTimeout(() => {
                     window.location.href = gpayDirectUrl;
                   }, 500);
                 } else {
-                  // iOS / Web scheme
                   window.location.href = gpayDirectUrl;
                 }
               };
@@ -89,6 +90,13 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
 
                   {iAmFrom && (
                     <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                      {!hasCustomUpi && (
+                        <div className="text-[11px] text-amber-600 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg">
+                          <AlertTriangle size={12} />
+                          <span>{toName} hasn't added a UPI ID yet (using default).</span>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2">
                         {/* Primary GPay Button */}
                         <button
@@ -109,13 +117,13 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
                         </a>
                       </div>
 
-                      {/* Manual Copy Fallback */}
+                      {/* Manual Copy Button */}
                       <button
-                        onClick={() => handleCopyUPI(amountStr, index)}
+                        onClick={() => handleCopyUPI(payeeUpi, index)}
                         className="flex items-center justify-center gap-1.5 py-2 text-slate-500 hover:text-slate-700 text-xs font-medium bg-white border border-slate-200/80 rounded-xl active:bg-slate-50 transition-colors"
                       >
                         <Copy size={13} />
-                        <span>{copiedIndex === index ? 'UPI ID Copied!' : `Copy UPI (${DEFAULT_UPI_ID})`}</span>
+                        <span>{copiedIndex === index ? 'UPI ID Copied!' : `Copy UPI (${payeeUpi})`}</span>
                       </button>
                     </div>
                   )}
