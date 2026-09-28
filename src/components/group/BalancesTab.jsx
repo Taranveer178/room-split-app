@@ -7,7 +7,6 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
   const { balances, settlements } = useMemo(() => calculateSettlements(expenses, group.members), [expenses, group.members]);
   const myBalance = balances[currentUser.id] || 0;
   
-  // The default UPI ID requested for all payments
   const DEFAULT_UPI_ID = "staranveer178@okicici";
 
   return (
@@ -37,8 +36,22 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
               const fromName = iAmFrom ? 'You' : getUserName(settlement.from);
               const toName = iAmTo ? 'You' : getUserName(settlement.to);
               
-              // Generate UPI deep link with pre-filled amount and default UPI ID
-              const upiLink = `upi://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${settlement.amount.toFixed(2)}&cu=INR`;
+              const amountStr = settlement.amount.toFixed(2);
+              const note = encodeURIComponent(`RoomSplit Settlement to ${toName}`);
+              
+              // Direct Intent URL targeted specifically to open Google Pay package if available, 
+              // falling back to general UPI if GPay isn't installed.
+              const gpayIntentUrl = `intent://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+              
+              // Standard fallback UPI link for iOS / Web browsers
+              const standardUpiLink = `upi://pay?pa=${DEFAULT_UPI_ID}&pn=${encodeURIComponent(toName)}&am=${amountStr}&cu=INR&tn=${note}`;
+
+              const handlePayClick = (e) => {
+                e.preventDefault();
+                // Check if Android to use intent package, otherwise use standard upi link
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                window.location.href = isAndroid ? gpayIntentUrl : standardUpiLink;
+              };
 
               return (
                 <Card 
@@ -50,20 +63,19 @@ export default function BalancesTab({ expenses, group, currentUser, getUserName 
                       <strong className="text-slate-800 font-semibold">{fromName}</strong> pays <strong className="text-slate-800 font-semibold">{toName}</strong>
                     </span>
                     <div className={`text-base font-bold ${iAmFrom ? 'text-rose-500' : iAmTo ? 'text-emerald-600' : 'text-slate-700'}`}>
-                      ₹{settlement.amount.toFixed(2)}
+                      ₹{amountStr}
                     </div>
                   </div>
 
-                  {/* Render 'Pay Now' button ONLY if the current user owes the money */}
                   {iAmFrom && (
                     <div className="pt-1">
-                      <a 
-                        href={upiLink}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                      <button 
+                        onClick={handlePayClick}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all shadow-sm cursor-pointer"
                       >
                         <Send size={16} />
-                        Pay via UPI
-                      </a>
+                        Pay via Google Pay
+                      </button>
                     </div>
                   )}
                 </Card>
