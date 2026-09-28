@@ -87,34 +87,42 @@ export default function AddExpenseTab({
     try {
       await onSaveExpense(newExpense);
 
-      // Notify all other members involved in the group / split
+      // Notify other members involved in the group (excluding yourself)
       if (onSendNotification) {
-        const payerName = paidBy === currentUser.id ? 'You' : getUserName(paidBy);
-        const recipientIds = group.members.filter((id) => id !== currentUser.id);
+        const actualPayerName = getUserName(paidBy) || currentUser.username || 'A member';
+        
+        // 1. Get other member IDs only
+        const otherMemberIds = group.members.filter((id) => id !== currentUser.id);
 
-        const notifications = recipientIds.map((memberId) => {
+        const recipientNotifications = otherMemberIds.map((memberId) => {
           const owesAmount = finalSplits[memberId];
-          const splitText = owesAmount ? ` (Your share: ₹${owesAmount})` : '';
+          const splitText = owesAmount && parseFloat(owesAmount) > 0 ? ` (Your share: ₹${owesAmount})` : '';
 
           return {
             id: `notif_${Date.now()}_${memberId}`,
             recipientId: memberId,
             senderId: currentUser.id,
+            createdBy: currentUser.id,
+            createdByName: actualPayerName,
             groupId: group.id,
             type: 'EXPENSE_ADDED',
-            message: `${payerName} added "${newExpense.title}" for ₹${newExpense.totalAmount}${splitText}.`,
+            message: `${actualPayerName} added "${newExpense.title}" for ₹${newExpense.totalAmount}${splitText}.`,
             expenseId: newExpense.id,
             createdAt: new Date().toISOString(),
             read: false,
           };
         });
 
-        await onSendNotification(notifications);
+        // 2. Only dispatch if there are other members to notify
+        if (recipientNotifications.length > 0) {
+          await onSendNotification(recipientNotifications);
+        }
       }
 
       showToast('Expense saved and members notified!');
       onSaved();
     } catch (err) {
+      console.error(err);
       setError('Failed to save expense. Please try again.');
     }
   };

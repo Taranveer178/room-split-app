@@ -10,6 +10,7 @@ import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card, Button, Input, NavItem } from '../common/UI';
 import { requestNotificationPermission } from '../../utils/notifications';
 
+
 export default function Dashboard({ user, groups, notifications, onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, showToast }) {
   const [activeTab, setActiveTab] = useState('groups');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -163,19 +164,60 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
                 notifications
                   .slice()
                   .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
-                  .map((notification) => (
-                    <div key={notification.id} className={`p-4 rounded-2xl border ${notification.read ? 'bg-white border-slate-100' : 'bg-indigo-50 border-indigo-100'}`}>
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-indigo-600 flex-shrink-0">
-                          <Bell size={17} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm text-slate-700 leading-relaxed">{notification.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                  .map((notification) => {
+                    // 1. Determine who created the notification
+                    const creatorId = notification.createdBy || notification.senderId || notification.userId;
+                    const isMe = creatorId === user?.id;
+                    
+                    // 2. Resolve creator's name
+                    const creatorName = isMe 
+                      ? 'You' 
+                      : (notification.createdByName || notification.senderName || (typeof getUserName === 'function' && getUserName(creatorId)) || 'Someone');
+
+                    // 3. Format message: replace hardcoded "You added" with "[Name] added" if someone else added it
+                    let displayMessage = notification.message || '';
+                    if (!isMe && displayMessage.startsWith('You added')) {
+                      displayMessage = displayMessage.replace('You added', `${creatorName} added`);
+                    } else if (isMe && !displayMessage.startsWith('You added') && displayMessage.includes('added')) {
+                      // If it saved with author's name, show "You added" to the author
+                      displayMessage = displayMessage.replace(`${creatorName} added`, 'You added');
+                    }
+
+                    return (
+                      <div 
+                        key={notification.id} 
+                        onClick={() => {
+                          if (notification.groupId && typeof onOpenGroup === 'function') {
+                            onOpenGroup(notification.groupId);
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer hover:border-slate-300 ${
+                          notification.read ? 'bg-white border-slate-100 shadow-xs' : 'bg-indigo-50/70 border-indigo-100 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-white shadow-xs flex items-center justify-center text-indigo-600 flex-shrink-0 mt-0.5">
+                            <Bell size={17} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-slate-800 font-medium leading-relaxed">
+                              {displayMessage}
+                            </p>
+                            <div className="flex items-center justify-between mt-1.5">
+                              <span className="text-xs text-slate-400">
+                                {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ''}
+                              </span>
+                              {notification.groupId && (
+                                <span className="text-[11px] font-semibold text-indigo-600 hover:underline">
+                                  View bill →
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
               )}
             </div>
           </div>
@@ -183,12 +225,17 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
 
         {/* ============================== */}
         {/* TAB 3: USER PROFILE SETTINGS   */}
-        {/* ============================== */}
+        
         {activeTab === 'profile' && (
-          <ProfileTab user={user} onUpdateUser={onUpdateUser} showToast={showToast} />
+          <ProfileTab 
+            user={user} 
+            onUpdateUser={onUpdateUser} 
+            showToast={showToast} 
+          />
         )}
       </main>
 
+      {/* Main Dashboard Bottom Navigation */}
       {/* Main Dashboard Bottom Navigation */}
       <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
         <div className="flex justify-around items-center h-16">
@@ -198,12 +245,26 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
             isActive={activeTab === 'groups'} 
             onClick={() => setActiveTab('groups')} 
           />
-          <NavItem 
-            icon={Bell} 
-            label="Activity" 
-            isActive={activeTab === 'notifications'} 
-            onClick={() => setActiveTab('notifications')} 
-          />
+
+          {/* Activity Tab with unread indicator badge */}
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+              activeTab === 'notifications' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <Bell size={20} />
+              {unreadNotifications.length > 0 && (
+                <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 ring-2 ring-white"></span>
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] mt-1">Activity</span>
+          </button>
+
           <NavItem 
             icon={User} 
             label="Profile" 
@@ -217,7 +278,7 @@ export default function Dashboard({ user, groups, notifications, onLogout, onOpe
 }
 
 
-/* ========================================= */
+//* ========================================= */
 /* PROFILE TAB COMPONENT (Internal)          */
 /* ========================================= */
 function ProfileTab({ user, onUpdateUser, showToast }) {
@@ -228,7 +289,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [localSuccess, setLocalSuccess] = useState('');
+  const [fallbackToast, setFallbackToast] = useState(false);
 
   // Keep state in sync whenever user object updates from Firebase
   useEffect(() => {
@@ -244,7 +305,6 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLocalError('');
-    setLocalSuccess('');
     setLoading(true);
     
     try {
@@ -299,10 +359,14 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
         setPassword(''); 
       }
 
-      setLocalSuccess("Profile updated successfully!");
+      // Trigger bottom toast notification matching expense submit theme
       if (typeof showToast === 'function') {
         showToast("Profile updated successfully!");
+      } else {
+        setFallbackToast(true);
+        setTimeout(() => setFallbackToast(false), 3000);
       }
+
       setIsEditing(false);
       
     } catch (err) {
@@ -327,15 +391,8 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
   };
 
   return (
-    <div className="p-5 animate-in fade-in duration-200 pb-12">
+    <div className="p-5 animate-in fade-in duration-200 pb-12 relative">
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Your Profile</h1>
-
-      {localSuccess && !isEditing && (
-        <div className="mb-4 bg-emerald-50 text-emerald-700 p-3.5 rounded-xl text-sm flex items-center gap-2.5 border border-emerald-100">
-          <span className="flex-shrink-0">✅</span>
-          <p className="font-medium">{localSuccess}</p>
-        </div>
-      )}
 
       {!isEditing ? (
         /* --- VIEW MODE --- */
@@ -370,7 +427,6 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
           <Button 
             onClick={() => {
               setIsEditing(true);
-              setLocalSuccess('');
               setLocalError('');
             }} 
             className="w-full max-w-xs h-12 text-sm"
@@ -477,6 +533,16 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
             </Button>
           </div>
         </form>
+      )}
+
+      {/* Matching Floating Toast (Fallback if parent showToast is not wired) */}
+      {fallbackToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg border border-slate-800 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            Profile updated successfully!
+          </div>
+        </div>
       )}
     </div>
   );
