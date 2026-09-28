@@ -10,12 +10,19 @@ import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card, Button, Input, NavItem } from '../common/UI';
 import { requestNotificationPermission } from '../../utils/notifications';
 
-export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, showToast }) {
+export default function Dashboard({ user, groups, notifications, onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, showToast }) {
   const [activeTab, setActiveTab] = useState('groups');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   
   const myGroups = groups.filter((group) => group.members && group.members.includes(user.id));
+  const unreadNotifications = notifications.filter((notification) => !notification.read);
+
+  useEffect(() => {
+    if (activeTab === 'notifications' && unreadNotifications.length) {
+      onMarkNotificationsRead(unreadNotifications.map((notification) => notification.id));
+    }
+  }, [activeTab, notifications]);
 
   // Request notification permissions when user logs in
   useEffect(() => {
@@ -144,15 +151,32 @@ export default function Dashboard({ user, groups, onLogout, onOpenGroup, onCreat
             <h1 className="text-2xl font-bold text-slate-900 mb-6">Notifications</h1>
             
             <div className="space-y-3">
-              <div className="flex flex-col items-center justify-center text-center px-6 pt-16">
-                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <Bell size={28} className="text-slate-400" />
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center px-6 pt-16">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                    <Bell size={28} className="text-slate-400" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900">All caught up!</h3>
+                  <p className="text-slate-500 text-sm mt-1">You have no activity yet.</p>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">All caught up!</h3>
-                <p className="text-slate-500 text-sm mt-1">
-                  You have no new notifications right now.
-                </p>
-              </div>
+              ) : (
+                notifications
+                  .slice()
+                  .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
+                  .map((notification) => (
+                    <div key={notification.id} className={`p-4 rounded-2xl border ${notification.read ? 'bg-white border-slate-100' : 'bg-indigo-50 border-indigo-100'}`}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-indigo-600 flex-shrink-0">
+                          <Bell size={17} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-700 leading-relaxed">{notification.message}</p>
+                          <p className="text-xs text-slate-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         )}

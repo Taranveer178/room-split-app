@@ -37,6 +37,7 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeUserId, setActiveUserId] = useState(() => (
     localStorage.getItem('rs_active_user_id') || null
@@ -50,9 +51,11 @@ export default function App() {
       const savedUsers = localStorage.getItem('rs_users');
       const savedGroups = localStorage.getItem('rs_groups');
       const savedExpenses = localStorage.getItem('rs_expenses');
+      const savedNotifications = localStorage.getItem('rs_notifications');
       setUsers(savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS);
       setGroups(savedGroups ? JSON.parse(savedGroups) : INITIAL_GROUPS);
       setExpenses(savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES);
+      setNotifications(savedNotifications ? JSON.parse(savedNotifications) : []);
       setLoading(false);
       return undefined;
     }
@@ -94,6 +97,10 @@ export default function App() {
           console.error('Expenses listener error:', error);
           setLoading(false);
         }));
+
+        unsubscribers.push(onSnapshot(collection(db, 'notifications'), (snapshot) => {
+          setNotifications(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        }, (error) => console.error('Notifications listener error:', error)));
       } catch (error) {
         console.error('Firestore auth setup failed:', error);
         setLoading(false);
@@ -142,6 +149,38 @@ export default function App() {
     setUsers((previous) => {
       const next = previous.map((user) => (user.id === userId ? { ...user, ...updates } : user));
       localStorage.setItem('rs_users', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const saveNotifications = async (newNotifications) => {
+    if (!newNotifications.length) return;
+    if (db) {
+      await Promise.all(newNotifications.map((notification) => (
+        setDoc(doc(db, 'notifications', notification.id), notification)
+      )));
+      return;
+    }
+    setNotifications((previous) => {
+      const next = [...previous, ...newNotifications];
+      localStorage.setItem('rs_notifications', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const markNotificationsRead = async (notificationIds) => {
+    if (!notificationIds.length) return;
+    if (db) {
+      await Promise.all(notificationIds.map((notificationId) => (
+        setDoc(doc(db, 'notifications', notificationId), { read: true }, { merge: true })
+      )));
+      return;
+    }
+    setNotifications((previous) => {
+      const next = previous.map((notification) => (
+        notificationIds.includes(notification.id) ? { ...notification, read: true } : notification
+      ));
+      localStorage.setItem('rs_notifications', JSON.stringify(next));
       return next;
     });
   };
@@ -221,6 +260,8 @@ export default function App() {
           onCreateGroup={() => setCurrentView('create_group')}
           onJoinGroup={() => setCurrentView('join_group')}
           onUpdateUser={updateUser}
+          notifications={notifications.filter((notification) => notification.recipientId === activeUser.id)}
+          onMarkNotificationsRead={markNotificationsRead}
         />
       ) : currentView === 'create_group' ? (
         <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
@@ -232,6 +273,7 @@ export default function App() {
           expenses={expenses.filter((expense) => expense.groupId === currentGroupId)}
           onSaveExpense={saveExpense}
           onDeleteExpense={deleteExpense}
+          onSendNotification={saveNotifications}
           users={users}
           currentUser={activeUser}
           onBack={() => { setCurrentGroupId(null); setCurrentView('dashboard'); }}
