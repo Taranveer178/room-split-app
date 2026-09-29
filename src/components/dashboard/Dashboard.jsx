@@ -3,7 +3,7 @@ import {
   LogOut, Plus, UserPlus, Users, Download, 
   Bell, User, ChevronRight, Lock, Mail, UserCircle, Trash2 , TrendingUp
 } from 'lucide-react';
-import { updateProfile, updateEmail } from 'firebase/auth';
+import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
@@ -340,7 +340,7 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
 function ProfileTab({ user, onUpdateUser, showToast }) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.username || '');
-  const [email, setEmail] = useState(auth.currentUser?.email || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [upiId, setUpiId] = useState(user?.upiId || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -352,9 +352,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
     if (user) {
       setName(user.username || '');
       setUpiId(user.upiId || '');
-    }
-    if (auth.currentUser?.email) {
-      setEmail(auth.currentUser.email);
+      setEmail(user.email || '');
     }
   }, [user]);
 
@@ -365,7 +363,6 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
     
     try {
       const firebaseUser = auth.currentUser;
-      if (!firebaseUser) throw new Error("No authenticated user found.");
 
       if (password.trim() && password.length < 6) {
         throw new Error("New password must be at least 6 characters long.");
@@ -375,7 +372,9 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
 
       // 1. Update Display Name
       if (name.trim() && name.trim() !== user.username) {
-        await updateProfile(firebaseUser, { displayName: name.trim() });
+        if (firebaseUser) {
+          await updateProfile(firebaseUser, { displayName: name.trim() });
+        }
         firestoreUpdates.username = name.trim();
       }
 
@@ -384,17 +383,9 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
         firestoreUpdates.upiId = upiId.trim();
       }
 
-      // 3. Update Email safely
-      if (email.trim() && email.trim() !== firebaseUser.email) {
-        try {
-          await updateEmail(firebaseUser, email.trim());
-          firestoreUpdates.email = email.trim();
-        } catch (emailErr) {
-          if (emailErr.code === 'auth/operation-not-allowed') {
-            throw new Error("Firebase requires email verification to change emails. Please update your Firebase Console settings.");
-          }
-          throw emailErr;
-        }
+      // 3. Save the contact email on the shared app profile in Firestore
+      if (email.trim() !== (user.email || '')) {
+        firestoreUpdates.email = email.trim();
       }
 
       // Commit changes to Firestore and parent state
@@ -432,8 +423,6 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
         setLocalError("For security, please log out and log back in before changing your password or email.");
       } else if (err.code === 'auth/invalid-email') {
         setLocalError("The email address is not valid.");
-      } else if (err.code === 'auth/email-already-in-use') {
-        setLocalError("This email is already registered to another account.");
       } else {
         setLocalError(err.message || "Failed to update profile.");
       }
@@ -461,7 +450,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
           
           <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-1 mb-4">
             <Mail size={14} />
-            <span>{auth.currentUser?.email || 'No email set'}</span>
+            <span>{user?.email || 'No email set'}</span>
           </div>
 
           {/* Read-Only UPI Display Badge */}
@@ -573,7 +562,7 @@ function ProfileTab({ user, onUpdateUser, showToast }) {
                 setIsEditing(false);
                 setLocalError('');
                 setName(user?.username || '');
-                setEmail(auth.currentUser?.email || '');
+                setEmail(user?.email || '');
                 setUpiId(user?.upiId || '');
                 setPassword('');
               }}
