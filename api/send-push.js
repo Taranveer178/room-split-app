@@ -1,33 +1,62 @@
 // api/send-push.js
 import admin from 'firebase-admin';
 
-// Initialize Firebase Admin once
-if (!admin.apps.length) {
+function formatPrivateKey(key) {
+  if (!key) return undefined;
+  // If the key has escaped newlines "\n", replace them with real newlines
+  let formatted = key.replace(/\\n/g, '\n');
+  // If the key was pasted with quotes around it, trim them
+  if (formatted.startsWith('"') && formatted.endsWith('"')) {
+    formatted = formatted.slice(1, -1);
+  }
+  return formatted;
+}
+
+function initFirebaseAdmin() {
+  if (admin.apps.length > 0) return;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error(
+      `Missing env variables: projectId=${Boolean(projectId)}, clientEmail=${Boolean(clientEmail)}, privateKey=${Boolean(privateKey)}`
+    );
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      projectId,
+      clientEmail,
+      privateKey,
     }),
   });
 }
 
-const db = admin.firestore();
-const messaging = admin.messaging();
-
 export default async function handler(req, res) {
-  // CORS Headers so Cloudflare Pages can make requests to Vercel
+  // CORS configuration for Cloudflare Pages
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle browser pre-flight check
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Attempt Firebase Admin initialization inside handler to capture errors cleanly
+  try {
+    initFirebaseAdmin();
+  } catch (initErr) {
+    console.error('Firebase Admin init error:', initErr);
+    return res.status(500).json({ 
+      error: 'Firebase Admin initialization failed', 
+      details: initErr.message 
+    });
   }
 
   if (req.method !== 'POST') {
@@ -41,7 +70,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Fetch user's registered FCM tokens
+    const db = admin.firestore();
+    const messaging = admin.messaging();
+
     const userDoc = await db.collection('users').doc(recipientId).get();
     const fcmTokens = userDoc.data()?.fcmTokens || [];
 
@@ -49,20 +80,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'No registered device tokens found' });
     }
 
-    // 2. Multicast to all active devices
     const response = await messaging.sendEachForMulticast({
-      notification: {
-        title,
-        body: message,
-      },
-      data: {
-        groupId,
-        url: '/',
-      },
+      notification: { title, body: message },
+      data: { groupId, url: '/' },
       tokens: fcmTokens,
     });
 
-    // 3. Clean up uninstalled or invalid tokens
     const deadTokens = [];
     response.responses.forEach((resp, idx) => {
       if (!resp.success) {
@@ -84,7 +107,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, count: response.successCount });
   } catch (error) {
-    console.error('Push notification dispatch error:', error);
+    console.error('Push dispatch error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
