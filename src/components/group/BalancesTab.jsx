@@ -448,10 +448,10 @@ export default function BalancesTab({
 
       {/* MODAL: Breakdown Receipt */}
       {breakdownData && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex flex-col justify-end sm:items-center sm:justify-center animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[24px] w-full max-w-sm max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
             
-            <div className="p-5 border-b border-slate-100 bg-slate-50 rounded-t-3xl">
+            <div className="p-5 border-b border-slate-100 bg-slate-50">
               <h3 className="text-sm font-bold text-slate-900">Expense Breakdown</h3>
               <p className="text-xs text-slate-500 mt-1">
                 Why <strong className="text-slate-700">{breakdownData.fromName}</strong> needs to pay <strong className="text-slate-700">{breakdownData.toName}</strong> <strong className="font-mono text-slate-800">₹{breakdownData.amount.toFixed(2)}</strong>
@@ -480,8 +480,8 @@ export default function BalancesTab({
               })}
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-white sm:rounded-b-3xl">
-              <Button onClick={() => setBreakdownData(null)} variant="secondary" className="w-full py-3 text-xs">
+            <div className="p-4 border-t border-slate-100 bg-white">
+              <Button onClick={() => setBreakdownData(null)} variant="secondary" className="w-full py-3 text-xs rounded-xl">
                 Close Breakdown
               </Button>
             </div>
