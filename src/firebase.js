@@ -23,15 +23,18 @@ export const hasFirebase = Boolean(firebaseConfig.apiKey && firebaseConfig.proje
 
 let db = null;
 let auth = null;
+let app = null; // 1. Added app variable here
 
 if (hasFirebase) {
   try {
-    const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    db = getFirestore(firebaseApp);
-    auth = getAuth(firebaseApp);
+    // 2. Assign the initialized app to our variable
+    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
   } catch (error) {
     console.error('Firebase init failed:', error);
   }
 }
 
-export { auth, collection, db, deleteDoc, doc, onSnapshot, setDoc, signInAnonymously };
+// 3. Added 'app' to the exports list below
+export { app, auth, collection, db, deleteDoc, doc, onSnapshot, setDoc, signInAnonymously };
