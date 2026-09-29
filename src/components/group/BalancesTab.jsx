@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
 import { Card, Button } from '../common/UI';
+import { triggerPushNotification } from '../../utils/notifications';
 
 export default function BalancesTab({ 
   expenses, 
@@ -136,11 +137,22 @@ export default function BalancesTab({
     try {
       await recordSettlement(confirmSettlement.from, confirmSettlement.to, confirmSettlement.amount);
       const receiverName = currentUser.username || getUserName(currentUser.id);
+      const message = `${receiverName} confirmed receiving ₹${confirmSettlement.amount.toFixed(2)} from you.`;
+
+      // 1. In-app database notification
       await sendPaymentNotification(
         confirmSettlement.from,
         'SETTLEMENT_CONFIRMED',
-        `${receiverName} confirmed receiving ₹${confirmSettlement.amount.toFixed(2)} from you.`
+        message
       );
+
+      // 2. Mobile/Browser Web Push Notification via Vercel
+      await triggerPushNotification({
+        recipientId: confirmSettlement.from,
+        title: 'Payment Confirmed',
+        message,
+        groupId: group.id,
+      });
       
       if (typeof showToast === 'function') showToast(`Payment received and balance cleared!`);
       setConfirmSettlement(null);
@@ -181,11 +193,23 @@ export default function BalancesTab({
       try {
         await recordSettlement(currentUser.id, customPayee, amt.toFixed(2), "Quick Pay");
         const payerName = currentUser.username || getUserName(currentUser.id);
+        const message = `${payerName} recorded a payment of ₹${amt.toFixed(2)} to you.`;
+
+        // 1. In-app database notification
         await sendPaymentNotification(
           customPayee,
           'PAYMENT_RECORDED',
-          `${payerName} recorded a payment of ₹${amt.toFixed(2)} to you.`
+          message
         );
+
+        // 2. Mobile/Browser Web Push Notification via Vercel
+        await triggerPushNotification({
+          recipientId: customPayee,
+          title: 'Payment Received',
+          message,
+          groupId: group.id,
+        });
+
         if (typeof showToast === 'function') showToast(`Payment recorded successfully!`);
         setCustomPayee('');
         setCustomAmount('');
