@@ -7,7 +7,7 @@ import { db, app } from '../firebase';
 const VAPID_KEY = 'BPU9fESDL4EIcWTGOE0jfC8pLlqWnYEFwbQed-ZHN6DiCsEbQgxf486jpCTXEktxNlRj0V56fyCAyatssJjHhg0';
 
 // REPLACE THIS with your deployed Vercel domain (from Step 4)
-const VERCEL_API_URL = 'https://YOUR-VERCEL-PROJECT-NAME.vercel.app/api/send-push';
+const VERCEL_API_URL = 'https://room-split-app.vercel.app/api/send-push';
 
 export async function requestNotificationPermission(currentUser) {
   try {
