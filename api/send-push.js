@@ -1,19 +1,21 @@
 // api/send-push.js
-import admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
 
 function formatPrivateKey(key) {
   if (!key) return undefined;
-  // If the key has escaped newlines "\n", replace them with real newlines
   let formatted = key.replace(/\\n/g, '\n');
-  // If the key was pasted with quotes around it, trim them
   if (formatted.startsWith('"') && formatted.endsWith('"')) {
     formatted = formatted.slice(1, -1);
   }
   return formatted;
 }
 
-function initFirebaseAdmin() {
-  if (admin.apps.length > 0) return;
+function getFirebaseAdminApp() {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -25,8 +27,8 @@ function initFirebaseAdmin() {
     );
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert({
+  return initializeApp({
+    credential: cert({
       projectId,
       clientEmail,
       privateKey,
@@ -35,7 +37,6 @@ function initFirebaseAdmin() {
 }
 
 export default async function handler(req, res) {
-  // CORS configuration for Cloudflare Pages
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -48,9 +49,9 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Attempt Firebase Admin initialization inside handler to capture errors cleanly
+  let app;
   try {
-    initFirebaseAdmin();
+    app = getFirebaseAdminApp();
   } catch (initErr) {
     console.error('Firebase Admin init error:', initErr);
     return res.status(500).json({ 
@@ -70,8 +71,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = admin.firestore();
-    const messaging = admin.messaging();
+    const db = getFirestore(app);
+    const messaging = getMessaging(app);
 
     const userDoc = await db.collection('users').doc(recipientId).get();
     const fcmTokens = userDoc.data()?.fcmTokens || [];
@@ -101,7 +102,7 @@ export default async function handler(req, res) {
 
     if (deadTokens.length > 0) {
       await db.collection('users').doc(recipientId).update({
-        fcmTokens: admin.firestore.FieldValue.arrayRemove(...deadTokens),
+        fcmTokens: FieldValue.arrayRemove(...deadTokens),
       });
     }
 
