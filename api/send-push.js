@@ -1,7 +1,8 @@
 // api/send-push.js
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
+const admin = require('firebase-admin');
 
 function formatPrivateKey(key) {
   if (!key) return undefined;
@@ -12,9 +13,9 @@ function formatPrivateKey(key) {
   return formatted;
 }
 
-function getFirebaseAdminApp() {
-  if (getApps().length > 0) {
-    return getApps()[0];
+function initAdmin() {
+  if (admin.apps && admin.apps.length > 0) {
+    return admin.app();
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -27,8 +28,8 @@ function getFirebaseAdminApp() {
     );
   }
 
-  return initializeApp({
-    credential: cert({
+  return admin.initializeApp({
+    credential: admin.credential.cert({
       projectId,
       clientEmail,
       privateKey,
@@ -37,7 +38,7 @@ function getFirebaseAdminApp() {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
@@ -49,9 +50,8 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  let app;
   try {
-    app = getFirebaseAdminApp();
+    initAdmin();
   } catch (initErr) {
     console.error('Firebase Admin init error:', initErr);
     return res.status(500).json({ 
@@ -71,8 +71,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = getFirestore(app);
-    const messaging = getMessaging(app);
+    const db = admin.firestore();
+    const messaging = admin.messaging();
 
     const userDoc = await db.collection('users').doc(recipientId).get();
     const fcmTokens = userDoc.data()?.fcmTokens || [];
@@ -102,7 +102,7 @@ export default async function handler(req, res) {
 
     if (deadTokens.length > 0) {
       await db.collection('users').doc(recipientId).update({
-        fcmTokens: FieldValue.arrayRemove(...deadTokens),
+        fcmTokens: admin.firestore.FieldValue.arrayRemove(...deadTokens),
       });
     }
 
