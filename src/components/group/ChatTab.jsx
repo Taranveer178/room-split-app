@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Download, ImagePlus, MessageCircle, Paperclip, Send, Smile, Sticker, X } from 'lucide-react';
+import { ArrowLeft, Download, ImagePlus, MessageCircle, Paperclip, Send, Smile, Sticker, X } from 'lucide-react';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -55,6 +55,15 @@ export default function ChatTab({ group, currentUser, users }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!selectedImage) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setSelectedImage(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -246,10 +255,10 @@ export default function ChatTab({ group, currentUser, users }) {
     }
 
     return (
-      <div className="flex max-w-56 items-center gap-3 rounded-xl bg-slate-50 p-3">
+      <div className="flex max-w-56 items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-slate-900 shadow-sm">
         <Paperclip size={18} className="flex-shrink-0 text-indigo-600" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold">{downloadName}</p>
+          <p className="truncate text-xs font-semibold text-slate-900" title={downloadName}>{downloadName}</p>
           <div className="mt-1">{downloadLink}</div>
         </div>
       </div>
@@ -275,17 +284,24 @@ export default function ChatTab({ group, currentUser, users }) {
             const isMe = msg.senderId === currentUser.id;
             const sender = getUser(msg.senderId);
             const timeString = formatTime(msg);
+            const avatar = sender.photoDataUrl ? (
+              <img
+                src={sender.photoDataUrl}
+                alt={`${sender.username || 'Roommate'} profile`}
+                className="mb-1 h-7 w-7 flex-shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="mb-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-600">
+                {(sender.username || 'R').charAt(0).toUpperCase()}
+              </div>
+            );
 
             return (
               <div
                 key={msg.id}
                 className={`flex gap-2 ${isMe ? 'justify-end' : 'justify-start'} items-end`}
               >
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mb-1">
-                    {sender.username.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {!isMe && avatar}
 
                 <div
                   className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-[14px] leading-relaxed shadow-sm break-words relative ${
@@ -318,7 +334,7 @@ export default function ChatTab({ group, currentUser, users }) {
       </div>
 
       {/* Floating Modern Message Input Bar */}
-      <div className="p-2.5 bg-white border-t border-slate-200/90 flex-shrink-0">
+      <div className="flex-shrink-0 border-t border-slate-200/80 bg-white px-3 py-3 sm:px-4">
         {attachmentError && <p role="alert" className="px-2 pb-2 text-xs text-rose-600">{attachmentError}</p>}
         {picker && (
           <div className="mb-2 border border-slate-200 bg-slate-50 rounded-xl p-2.5">
@@ -345,7 +361,7 @@ export default function ChatTab({ group, currentUser, users }) {
             </div>
           </div>
         )}
-        <form onSubmit={handleSend} className="flex items-center gap-2">
+        <form onSubmit={handleSend} className="flex min-w-0 items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/80 p-1.5 shadow-sm sm:gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -357,40 +373,41 @@ export default function ChatTab({ group, currentUser, users }) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="w-10 h-10 flex-shrink-0 rounded-full text-slate-500 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-40"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white hover:text-indigo-600 disabled:opacity-40"
             title="Upload image, document, video, or audio"
             aria-label="Upload attachment"
           >
-            {uploading ? <span className="text-xs">...</span> : <ImagePlus size={19} className="mx-auto" />}
+            {uploading ? <span className="text-[10px]">...</span> : <ImagePlus size={18} />}
           </button>
           <button
             type="button"
             onClick={() => setPicker((current) => (current === 'emoji' ? null : 'emoji'))}
-            className={`w-9 h-9 flex-shrink-0 rounded-full hover:bg-slate-100 ${picker === 'emoji' ? 'text-indigo-600' : 'text-slate-500'}`}
+            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white ${picker === 'emoji' ? 'text-indigo-600' : 'text-slate-500'}`}
             title="Insert emoji"
             aria-label="Open emoji picker"
           >
-            <Smile size={19} className="mx-auto" />
+            <Smile size={18} />
           </button>
           <button
             type="button"
             onClick={() => setPicker((current) => (current === 'sticker' ? null : 'sticker'))}
-            className={`w-9 h-9 flex-shrink-0 rounded-full hover:bg-slate-100 ${picker === 'sticker' ? 'text-indigo-600' : 'text-slate-500'}`}
+            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white ${picker === 'sticker' ? 'text-indigo-600' : 'text-slate-500'}`}
             title="Send sticker"
             aria-label="Open sticker picker"
           >
-            <Sticker size={19} className="mx-auto" />
+            <Sticker size={18} />
           </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-2.5 text-sm bg-slate-100 rounded-full border border-transparent focus:border-indigo-400 focus:bg-white outline-none transition-all placeholder:text-slate-400 text-slate-800"
+            className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 sm:px-3"
           />
           <button
             type="submit"
             disabled={!input.trim()}
-            className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 active:scale-95 disabled:opacity-40 transition-transform flex-shrink-0 shadow-sm"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95 disabled:opacity-40"
+            aria-label="Send message"
           >
             <Send size={16} />
           </button>
@@ -405,6 +422,15 @@ export default function ChatTab({ group, currentUser, users }) {
           aria-label="Full-screen image preview"
           onClick={() => setSelectedImage(null)}
         >
+          <button
+            type="button"
+            onClick={() => setSelectedImage(null)}
+            className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20"
+            aria-label="Back to chat"
+          >
+            <ArrowLeft size={19} />
+            <span>Back to chat</span>
+          </button>
           <button
             type="button"
             onClick={() => setSelectedImage(null)}

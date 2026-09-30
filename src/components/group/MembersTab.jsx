@@ -22,7 +22,19 @@ export default function MembersTab({ group, users, currentUser, showToast }) {
           const isMe = memberId === currentUser.id;
           return (
             <div key={memberId} className={`p-3.5 flex items-center justify-between ${index !== group.members.length - 1 ? 'border-b border-slate-100' : ''} ${isMe ? 'bg-slate-50' : ''}`}>
-              <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">{user ? user.username.charAt(0).toUpperCase() : '?'}</div><div><span className="font-semibold text-slate-800 text-sm block">{user ? user.username : 'Unknown User'} {isMe && <span className="text-[10px] text-slate-400 font-normal">(You)</span>}</span><span className="text-[10px] text-slate-400">{memberId === group.createdBy ? 'Admin' : 'Member'}</span></div></div>
+              <div className="flex items-center gap-3">
+                {user?.photoDataUrl ? (
+                  <img src={user.photoDataUrl} alt={`${user.username} profile`} className="h-9 w-9 rounded-full object-cover" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
+                    {user ? user.username.charAt(0).toUpperCase() : '?'}
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold text-slate-800 text-sm block">{user ? user.username : 'Unknown User'} {isMe && <span className="text-[10px] text-slate-400 font-normal">(You)</span>}</span>
+                  <span className="text-[10px] text-slate-400">{memberId === group.createdBy ? 'Admin' : 'Member'}</span>
+                </div>
+              </div>
             </div>
           );
         })}</Card>

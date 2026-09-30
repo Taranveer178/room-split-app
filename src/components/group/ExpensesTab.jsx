@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   Receipt, Trash2, Check, AlertCircle, X, 
   Calendar, CreditCard, User, Users, ChevronRight, 
@@ -24,7 +24,7 @@ const getCategoryStyle = (category = '') => {
   return { bg: 'bg-violet-500/10 text-violet-600 border-violet-500/20', icon: '⚡' };
 };
 
-export default function ExpensesTab({ expenses, currentUser, getUserName, onDeleteExpense, showToast }) {
+export default function ExpensesTab({ expenses, currentUser, users = [], getUserName, onDeleteExpense, showToast }) {
   const [payerFilter, setPayerFilter] = useState('ALL');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -105,6 +105,7 @@ export default function ExpensesTab({ expenses, currentUser, getUserName, onDele
           {uniquePayers.map(payerId => {
             const isMe = payerId === currentUser.id;
             const name = isMe ? 'You' : getUserName(payerId);
+            const payer = users.find((member) => member.id === payerId);
             const isSelected = payerFilter === payerId;
 
             return (
@@ -117,10 +118,12 @@ export default function ExpensesTab({ expenses, currentUser, getUserName, onDele
                     : 'bg-white border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                 }`}
               >
-                <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                <span className={`w-5 h-5 overflow-hidden rounded-full flex items-center justify-center text-[9px] font-bold ${
                   isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
                 }`}>
-                  {name.charAt(0).toUpperCase()}
+                  {payer?.photoDataUrl ? (
+                    <img src={payer.photoDataUrl} alt="" className="h-full w-full object-cover" />
+                  ) : name.charAt(0).toUpperCase()}
                 </span>
                 <span>{name}</span>
               </button>
@@ -404,6 +407,8 @@ export default function ExpensesTab({ expenses, currentUser, getUserName, onDele
                   const numShare = parseFloat(shareAmount);
                   if (numShare <= 0) return null;
                   const isUser = memberId === currentUser.id;
+                  const member = users.find((item) => item.id === memberId);
+                  const memberName = isUser ? 'You' : getUserName(memberId);
 
                   return (
                     <div 
@@ -415,10 +420,12 @@ export default function ExpensesTab({ expenses, currentUser, getUserName, onDele
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        <span className={`w-6 h-6 overflow-hidden rounded-full flex items-center justify-center text-[10px] font-bold ${
                           isUser ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {(isUser ? 'Y' : (getUserName(memberId) || 'U')).charAt(0).toUpperCase()}
+                          {member?.photoDataUrl ? (
+                            <img src={member.photoDataUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (isUser ? 'Y' : (memberName || 'U')).charAt(0).toUpperCase()}
                         </span>
                         <span className="font-semibold">
                           {isUser ? 'You' : getUserName(memberId)}

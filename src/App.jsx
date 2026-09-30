@@ -18,6 +18,7 @@ import CreateGroupModal from './components/dashboard/CreateGroupModal';
 import JoinGroupModal from './components/dashboard/JoinGroupModal';
 import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
+import AdminPanel from './components/admin/AdminPanel';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 
@@ -47,6 +48,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
+    if (window.location.pathname === '/admin') return undefined;
+
     if (!hasFirebase || !db || !auth) {
       const savedUsers = localStorage.getItem('rs_users');
       const savedGroups = localStorage.getItem('rs_groups');
@@ -234,6 +237,10 @@ export default function App() {
   };
 
   const activeUser = users.find((user) => user.id === activeUserId);
+
+  if (window.location.pathname === '/admin') {
+    return <AdminPanel />;
+  }
 
   if (loading) {
     return (

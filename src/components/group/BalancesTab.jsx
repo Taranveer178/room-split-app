@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { 
   CheckCircle2, Send, Copy, AlertTriangle, 
   CheckCheck, Sparkles, ArrowRightLeft, 
@@ -6,7 +6,7 @@ import {
   User
 } from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
-import { Card, Button } from '../common/UI';
+import { Button } from '../common/UI';
 import { triggerPushNotification } from '../../utils/notifications';
 
 export default function BalancesTab({ 
@@ -314,6 +314,9 @@ export default function BalancesTab({
                 amountColor = 'text-emerald-600';
                 badgeColor = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
               }
+              const avatarMemberId = iAmFrom ? settlement.to : settlement.from;
+              const avatarMember = users.find((member) => member.id === avatarMemberId);
+              const avatarName = getUserName(avatarMemberId) || 'Roommate';
 
               return (
                 <div key={index} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200">
@@ -323,9 +326,13 @@ export default function BalancesTab({
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition-colors"
                   >
                     <div className="flex items-center gap-3.5">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${badgeColor}`}>
-                        {iAmFrom ? toName.charAt(0).toUpperCase() : fromName.charAt(0).toUpperCase()}
-                      </div>
+                      {avatarMember?.photoDataUrl ? (
+                        <img src={avatarMember.photoDataUrl} alt={`${avatarName} profile`} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${badgeColor}`}>
+                          {avatarName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{statusText}</p>
                         <p className={`text-sm font-bold font-mono mt-0.5 ${amountColor}`}>

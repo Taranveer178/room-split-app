@@ -31,6 +31,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
           <ExpensesTab 
             expenses={sortedExpenses} 
             currentUser={currentUser} 
+            users={users}
             getUserName={getUserName} 
             onDeleteExpense={onDeleteExpense} 
             showToast={showToast} 
