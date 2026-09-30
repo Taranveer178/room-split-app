@@ -164,7 +164,7 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
         
         {activeTab === 'profile' && (
           <ProfileTabView 
-            key={[user.id, user.username, user.email, user.upiId, user.photoDataUrl].join(':')}
+            key={[user.id, user.username, user.email, user.upiId].join(':')}
             user={user} 
             onUpdateUser={onUpdateUser} 
             showToast={showToast} 
