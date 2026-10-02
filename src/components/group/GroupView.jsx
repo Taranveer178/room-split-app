@@ -7,7 +7,7 @@ import ExpensesTab from './ExpensesTab';
 import MembersTab from './MembersTab';
 import ChatTab from './ChatTab';
 
-export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpense, onSendNotification, users, currentUser, onBack, showToast }) {
+export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpense, onDeleteGroup, onSendNotification, users, currentUser, onBack, showToast }) {
   const [activeTab, setActiveTab] = useState('expenses');
   const getUserName = (userId) => users.find((user) => user.id === userId)?.username || 'Unknown';
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
@@ -77,6 +77,8 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
             group={group} 
             users={users} 
             currentUser={currentUser} 
+            expenses={expenses}
+            onDeleteGroup={onDeleteGroup}
             showToast={showToast} 
           />
         )}

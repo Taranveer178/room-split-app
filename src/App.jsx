@@ -6,6 +6,7 @@ import {
   onSnapshot,
   setDoc,
 } from 'firebase/firestore';
+import { calculateSettlements } from './utils/settlement';
 import { auth, db, hasFirebase, signInAnonymously } from './firebase';
 import {
   INITIAL_EXPENSES,
@@ -80,8 +81,7 @@ export default function App() {
           if (!snapshot.empty) {
             setGroups(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
           } else {
-            INITIAL_GROUPS.forEach((group) => setDoc(doc(db, 'groups', group.id), group).catch(() => {}));
-            setGroups(INITIAL_GROUPS);
+            setGroups([]);
           }
         }, (error) => console.error('Groups listener error:', error)));
 
@@ -236,6 +236,38 @@ export default function App() {
     });
   };
 
+  const deleteGroup = async (group) => {
+    if (group.createdBy !== activeUserId) {
+      throw new Error('Only the group admin can delete this group.');
+    }
+
+    const groupExpenses = expenses.filter((expense) => expense.groupId === group.id);
+    const { balances } = calculateSettlements(groupExpenses, group.members);
+    if (Object.values(balances).some((balance) => balance !== 0)) {
+      throw new Error('Settle all group balances before deleting this group.');
+    }
+
+    setCurrentGroupId(null);
+    setCurrentView('dashboard');
+
+    if (db) {
+      await Promise.all(groupExpenses.map((expense) => deleteDoc(doc(db, 'expenses', expense.id))));
+      await deleteDoc(doc(db, 'groups', group.id));
+    } else {
+      setExpenses((previous) => {
+        const next = previous.filter((expense) => expense.groupId !== group.id);
+        localStorage.setItem('rs_expenses', JSON.stringify(next));
+        return next;
+      });
+      setGroups((previous) => {
+        const next = previous.filter((item) => item.id !== group.id);
+        localStorage.setItem('rs_groups', JSON.stringify(next));
+        return next;
+      });
+    }
+
+  };
+
   const activeUser = users.find((user) => user.id === activeUserId);
 
   if (window.location.pathname === '/admin') {
@@ -281,6 +313,7 @@ export default function App() {
           expenses={expenses.filter((expense) => expense.groupId === currentGroupId)}
           onSaveExpense={saveExpense}
           onDeleteExpense={deleteExpense}
+          onDeleteGroup={deleteGroup}
           onSendNotification={saveNotifications}
           users={users}
           currentUser={activeUser}
