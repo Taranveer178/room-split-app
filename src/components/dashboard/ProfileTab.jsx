@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { ImagePlus, Lock, Mail, Trash2, UserCircle } from 'lucide-react';
 import { updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebase';
+import { auth } from '../../firebase';
 import { Button, Card, Input } from '../common/UI';
 
 export default function ProfileTab({ user, onUpdateUser, showToast }) {
@@ -80,7 +79,6 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
       if (photoDataUrl !== (user.photoDataUrl || '')) firestoreUpdates.photoDataUrl = photoDataUrl;
 
       if (Object.keys(firestoreUpdates).length > 0) {
-        await updateDoc(doc(db, 'users', user.id), firestoreUpdates);
         if (typeof onUpdateUser === 'function') {
           await onUpdateUser(user.id, firestoreUpdates);
         } else {

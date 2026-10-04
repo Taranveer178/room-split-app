@@ -85,6 +85,20 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
     return Object.keys(exp.splits).filter(id => parseFloat(exp.splits[id]) > 0);
   };
 
+  const getExpenseTitle = (exp) => {
+    if (exp.category !== 'Settlement') return exp.title;
+
+    const fromId = exp.settlementFrom || exp.paidBy;
+    const toId = exp.settlementTo || Object.entries(exp.splits || {})
+      .find(([memberId, amount]) => memberId !== fromId && parseFloat(amount) > 0)?.[0];
+    if (!fromId || !toId) return exp.title;
+
+    const prefix = exp.settlementTitlePrefix || exp.title?.split(':')[0] || 'Settlement';
+    const fromName = fromId === currentUser.id ? 'You' : getUserName(fromId);
+    const toName = toId === currentUser.id ? 'You' : getUserName(toId);
+    return `${prefix}: ${fromName} → ${toName}`;
+  };
+
   return (
     <div className="p-4 space-y-4 pb-28 relative min-h-full">
       {/* Top Filter and Select Controls */}
@@ -218,7 +232,7 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="font-bold text-slate-800 text-[13.5px] truncate tracking-tight leading-tight">
-                          {exp.title}
+                          {getExpenseTitle(exp)}
                         </h3>
                         <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
                           {exp.paymentMethod || 'UPI'}
@@ -325,7 +339,7 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
                   {getCategoryStyle(detailExpense.category).icon}
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base leading-tight">{detailExpense.title}</h3>
+                  <h3 className="font-bold text-slate-900 text-base leading-tight">{getExpenseTitle(detailExpense)}</h3>
                   <span className="text-xs text-slate-400 font-medium">{detailExpense.category || 'General'}</span>
                 </div>
               </div>

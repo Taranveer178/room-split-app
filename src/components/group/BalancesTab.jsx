@@ -113,8 +113,8 @@ export default function BalancesTab({
   const recordSettlement = async (fromId, toId, amountStr, titlePrefix = "Settlement") => {
     if (!onSaveExpense) throw new Error("Save handler missing");
 
-    const toName = toId === currentUser.id ? 'You' : getUserName(toId);
-    const fromName = fromId === currentUser.id ? 'You' : getUserName(fromId);
+    const toName = getUserName(toId);
+    const fromName = getUserName(fromId);
 
     const settlementSplits = {};
     group.members.forEach(m => settlementSplits[m] = "0");
@@ -136,6 +136,9 @@ export default function BalancesTab({
       id: `exp_settle_${(settlementHash >>> 0).toString(36)}`,
       groupId: group.id,
       title: `${titlePrefix}: ${fromName} → ${toName}`,
+      settlementFrom: fromId,
+      settlementTo: toId,
+      settlementTitlePrefix: titlePrefix,
       totalAmount: parseFloat(amountStr).toFixed(2),
       paidBy: fromId,
       paymentMethod: 'UPI',
