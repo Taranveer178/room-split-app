@@ -6,7 +6,7 @@ import {
   onSnapshot,
   setDoc,
 } from 'firebase/firestore';
-import { calculateSettlements } from './utils/settlement';
+import { calculateSettlements, GROUP_DELETE_BALANCE_TOLERANCE } from './utils/settlement';
 import { auth, db, hasFirebase, signInAnonymously } from './firebase';
 import {
   INITIAL_EXPENSES,
@@ -243,8 +243,8 @@ export default function App() {
 
     const groupExpenses = expenses.filter((expense) => expense.groupId === group.id);
     const { balances } = calculateSettlements(groupExpenses, group.members);
-    if (Object.values(balances).some((balance) => balance !== 0)) {
-      throw new Error('Settle all group balances before deleting this group.');
+    if (Object.values(balances).some((balance) => Math.abs(balance) >= GROUP_DELETE_BALANCE_TOLERANCE)) {
+      throw new Error('Settle all group balances of ₹1 or more before deleting this group.');
     }
 
     setCurrentGroupId(null);

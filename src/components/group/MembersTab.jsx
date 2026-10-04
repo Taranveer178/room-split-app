@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { AlertTriangle, Copy, Trash2 } from 'lucide-react';
 import { Card } from '../common/UI';
-import { calculateSettlements } from '../../utils/settlement';
+import { calculateSettlements, GROUP_DELETE_BALANCE_TOLERANCE } from '../../utils/settlement';
 
 export default function MembersTab({ group, users, currentUser, expenses, onDeleteGroup, showToast }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const isAdmin = group.createdBy === currentUser.id;
   const { balances } = calculateSettlements(expenses, group.members);
-  const hasOutstandingBalances = Object.values(balances).some((balance) => balance !== 0);
+  const hasOutstandingBalances = Object.values(balances).some((balance) => Math.abs(balance) >= GROUP_DELETE_BALANCE_TOLERANCE);
 
   const handleCopyInvite = () => {
     if (navigator.clipboard) {
@@ -64,8 +64,8 @@ export default function MembersTab({ group, users, currentUser, expenses, onDele
               <h3 className="text-sm font-bold text-slate-900">Delete group</h3>
               <p className="mt-1 text-xs text-slate-600">
                 {hasOutstandingBalances
-                  ? 'All member balances must be settled before this group can be deleted.'
-                  : 'This permanently removes the group and its expense history.'}
+                  ? 'Settle all balances of ₹1 or more before deleting this group.'
+                  : 'All member balances are below ₹1. Deleting this group permanently removes its expense history.'}
               </p>
               {confirmingDelete ? (
                 <div className="mt-3 flex gap-2">
@@ -86,7 +86,7 @@ export default function MembersTab({ group, users, currentUser, expenses, onDele
                 <button
                   onClick={() => {
                     if (hasOutstandingBalances) {
-                      showToast('Please settle all group balances before deleting this group.', 'error');
+                      showToast('Please settle all group balances of ₹1 or more before deleting this group.', 'error');
                       return;
                     }
                     setConfirmingDelete(true);

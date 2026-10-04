@@ -1,3 +1,5 @@
+export const GROUP_DELETE_BALANCE_TOLERANCE = 1;
+
 export const calculateSettlements = (expenses, members) => {
   const balances = {};
   members.forEach((memberId) => { balances[memberId] = 0; });
