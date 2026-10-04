@@ -15,7 +15,10 @@ export default function AddExpenseTab({
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidBy, setPaidBy] = useState(currentUser.id);
-  const [date] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().split('T')[0];
+  });
   const [category, setCategory] = useState('Food');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [splitMode, setSplitMode] = useState('equal');
@@ -155,6 +158,7 @@ export default function AddExpenseTab({
               </select>
             </div>
           </div>
+          <Input label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Category</label>
