@@ -218,7 +218,7 @@ export default function App() {
       return;
     }
     setExpenses((previous) => {
-      const next = [...previous, newExpense];
+      const next = [...previous.filter((expense) => expense.id !== newExpense.id), newExpense];
       localStorage.setItem('rs_expenses', JSON.stringify(next));
       return next;
     });

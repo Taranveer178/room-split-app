@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { 
   CheckCircle2, Send, Copy, AlertTriangle, 
   CheckCheck, Sparkles, ArrowRightLeft, 
@@ -28,6 +28,7 @@ export default function BalancesTab({
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showOptimized, setShowOptimized] = useState(true);
+  const confirmationInFlight = useRef(false);
 
   // Custom Quick Pay States
   const [customPayee, setCustomPayee] = useState('');
@@ -43,9 +44,15 @@ export default function BalancesTab({
 
     expenses.forEach(exp => {
       const payer = exp.paidBy;
-      if (!payer || !exp.splits || exp.category === 'Settlement') return;
+      if (!payer || !exp.splits) return;
       Object.entries(exp.splits).forEach(([participant, shareAmount]) => {
         const share = parseFloat(shareAmount) || 0;
+        if (exp.category === 'Settlement') {
+          if (participant !== payer && debtMatrix[payer]?.[participant] !== undefined) {
+            debtMatrix[payer][participant] -= share;
+          }
+          return;
+        }
         if (participant !== payer && share > 0 && debtMatrix[participant]) {
           debtMatrix[participant][payer] += share;
         }
@@ -113,8 +120,20 @@ export default function BalancesTab({
     group.members.forEach(m => settlementSplits[m] = "0");
     settlementSplits[toId] = parseFloat(amountStr).toFixed(2);
 
+    const settlementContext = [
+      group.id,
+      fromId,
+      toId,
+      parseFloat(amountStr).toFixed(2),
+      ...expenses.map(expense => expense.id).sort(),
+    ].join('|');
+    let settlementHash = 2166136261;
+    for (let index = 0; index < settlementContext.length; index += 1) {
+      settlementHash = Math.imul(settlementHash ^ settlementContext.charCodeAt(index), 16777619);
+    }
+
     const settlementTransaction = {
-      id: `exp_settle_${Date.now()}`,
+      id: `exp_settle_${(settlementHash >>> 0).toString(36)}`,
       groupId: group.id,
       title: `${titlePrefix}: ${fromName} → ${toName}`,
       totalAmount: parseFloat(amountStr).toFixed(2),
@@ -133,34 +152,34 @@ export default function BalancesTab({
 
   // Receiver verifies payment
   const handleConfirmReceived = async () => {
+    if (!confirmSettlement || confirmationInFlight.current) return;
+    confirmationInFlight.current = true;
     setLoading(true);
     try {
       await recordSettlement(confirmSettlement.from, confirmSettlement.to, confirmSettlement.amount);
+      setConfirmSettlement(null);
+      setExpandedId(null);
       const receiverName = currentUser.username || getUserName(currentUser.id);
       const message = `${receiverName} confirmed receiving ₹${confirmSettlement.amount.toFixed(2)} from you.`;
 
-      // 1. In-app database notification
-      await sendPaymentNotification(
-        confirmSettlement.from,
-        'SETTLEMENT_CONFIRMED',
-        message
-      );
+      try {
+        await sendPaymentNotification(confirmSettlement.from, 'SETTLEMENT_CONFIRMED', message);
+        await triggerPushNotification({
+          recipientId: confirmSettlement.from,
+          title: 'Payment Confirmed',
+          message,
+          groupId: group.id,
+        });
+      } catch (notificationError) {
+        console.error('Settlement notification failed:', notificationError);
+      }
 
-      // 2. Mobile/Browser Web Push Notification via Vercel
-      await triggerPushNotification({
-        recipientId: confirmSettlement.from,
-        title: 'Payment Confirmed',
-        message,
-        groupId: group.id,
-      });
-      
-      if (typeof showToast === 'function') showToast(`Payment received and balance cleared!`);
-      setConfirmSettlement(null);
-      setExpandedId(null);
+      if (typeof showToast === 'function') showToast('Payment received and balance cleared!');
     } catch (err) {
       console.error(err);
       if (typeof showToast === 'function') showToast('Failed to record settlement', 'error');
     } finally {
+      confirmationInFlight.current = false;
       setLoading(false);
     }
   };
