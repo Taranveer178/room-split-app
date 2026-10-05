@@ -46,7 +46,23 @@
 
   </head>
   <body class="bg-slate-100 font-sans antialiased text-slate-800 selection:bg-indigo-500 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div style="
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #4f46e5;
+    z-index: 9999;
+  ">
+    <img 
+      src="/loading.gif" 
+      alt="Loading RoomSplit..." 
+      style="width: 80px; height: 80px; object-fit: contain;"
+    />
+  </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

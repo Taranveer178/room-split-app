@@ -236,9 +236,9 @@ export default function ChatTab({ group, currentUser, users }) {
 
     if (attachmentType === 'video') {
       return (
-        <div className="space-y-2">
-          <video src={attachmentData} controls preload="metadata" className="max-h-64 max-w-full rounded-xl" />
-          <p className="max-w-52 truncate text-xs">{downloadName}</p>
+        <div className="space-y-2" style={{ width: 'min(65vw, 24rem)', maxWidth: '100%' }}>
+          <VideoPlayer src={attachmentData} mimeType={message.attachmentMimeType} />
+          <p className="max-w-full truncate text-xs" title={downloadName}>{downloadName}</p>
           {downloadLink}
         </div>
       );
@@ -456,5 +456,70 @@ export default function ChatTab({ group, currentUser, users }) {
         </div>
       )}
     </div>
+  );
+}
+
+function VideoPlayer({ src, mimeType }) {
+  const [playbackUrl, setPlaybackUrl] = useState('');
+  const [hasPlaybackError, setHasPlaybackError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl;
+    let isCancelled = false;
+
+    const setSource = async () => {
+      try {
+        if (src.startsWith('data:')) {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error('Could not load video data.');
+          const videoBlob = await response.blob();
+          objectUrl = URL.createObjectURL(new Blob([videoBlob], { type: mimeType || videoBlob.type }));
+          if (isCancelled) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          setPlaybackUrl(objectUrl);
+        } else {
+          setPlaybackUrl(src);
+        }
+      } catch (error) {
+        console.error('Could not prepare video playback:', error);
+        if (!isCancelled) setHasPlaybackError(true);
+      }
+    };
+
+    void setSource();
+    return () => {
+      isCancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src, mimeType]);
+
+  return (
+    <>
+      <div className="overflow-hidden rounded-xl border border-slate-900/10 bg-black shadow-sm">
+        {playbackUrl ? (
+          <video
+            src={playbackUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="block aspect-video w-full bg-black object-contain"
+            onError={() => setHasPlaybackError(true)}
+          >
+            Your browser does not support embedded video.
+          </video>
+        ) : (
+          <div className="flex aspect-video w-full items-center justify-center text-xs text-white/70">
+            Preparing video...
+          </div>
+        )}
+      </div>
+      {hasPlaybackError && (
+        <p role="status" className="text-xs text-amber-600">
+          This video format could not be played here. Download it to open in another player.
+        </p>
+      )}
+    </>
   );
 }
