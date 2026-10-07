@@ -286,7 +286,7 @@ export default function App() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 sm:border-x border-slate-200 sm:shadow-[0_0_40px_rgba(0,0,0,0.1)] relative overflow-hidden font-sans">
+    <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 sm:border-x border-slate-200 sm:shadow-[0_0_40px_rgba(0,0,0,0.1)] relative overflow-hidden font-sans lg:max-w-none lg:border-x-0 lg:shadow-none">
       <Toast toast={toast} />
       {!activeUser ? (
         <AuthScreen users={users} onSaveUser={saveUser} onLogin={handleLogin} />

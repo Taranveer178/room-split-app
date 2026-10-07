@@ -24,8 +24,8 @@ export const Input = ({ label, error, ...props }) => (
 );
 
 export const NavItem = ({ icon: Icon, label, isActive, onClick }) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors lg:h-12 lg:flex-row lg:justify-start lg:gap-3 lg:space-y-0 lg:px-5 ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
     <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-    <span className="text-[10px]">{label}</span>
+    <span className="text-[10px] lg:text-sm">{label}</span>
   </button>
 );

@@ -51,9 +51,9 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden lg:flex-row">
       {/* Sticky Header */}
-      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-30 flex-shrink-0">
+      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-30 flex-shrink-0 lg:absolute lg:left-0 lg:top-0 lg:z-50 lg:w-64 lg:items-center lg:px-5 lg:py-6 lg:border-b-0">
         <div className="flex items-center gap-3">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-9 h-9 rounded-xl object-contain shadow-sm" />
           <span className="text-xl font-bold text-slate-900">RoomSplit</span>
@@ -68,13 +68,13 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
       </header>
 
       {/* Main Scrollable Area */}
-      <main className="flex-1 overflow-y-auto pb-24 relative">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-24 relative lg:order-3 lg:pb-0">
         
         {/* ============================== */}
         {/* TAB 1: GROUPS (Dashboard Home) */}
         {/* ============================== */}
         {activeTab === 'groups' && (
-          <div className="p-5 animate-in fade-in duration-200">
+          <div className="p-5 animate-in fade-in duration-200 lg:p-10">
             {showInstallBanner && (
               <div className="mb-6 bg-slate-900 text-white p-4 rounded-2xl shadow-md flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -119,7 +119,7 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
                 <p className="text-slate-500 font-medium text-sm">You aren't in any groups yet.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
                 {myGroups.map((group) => (
                   <Card key={group.id} onClick={() => onOpenGroup(group.id)} className="p-4 hover:border-slate-300 transition-colors cursor-pointer">
                     <div className="flex justify-between items-center">
@@ -173,25 +173,25 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
       </main>
 
       {/* Main Dashboard Bottom Navigation */}
-      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
-        <div className="grid grid-cols-4 items-center h-16 w-full">
+      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)] lg:order-2 lg:static lg:w-64 lg:h-full lg:flex-shrink-0 lg:border-t-0 lg:border-r lg:pb-0 lg:pt-24">
+        <div className="grid grid-cols-4 items-center h-16 w-full lg:grid-cols-1 lg:h-auto lg:gap-2">
           {/* 1. Groups */}
           <button
             type="button"
             onClick={() => setActiveTab('groups')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
               activeTab === 'groups' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
             }`}
           >
             <Users size={20} />
-            <span className="text-[11px] mt-1">Groups</span>
+            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Groups</span>
           </button>
 
           {/* 2. Activity with Badge */}
           <button
             type="button"
             onClick={() => setActiveTab('notifications')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors relative ${
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors relative lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
               activeTab === 'notifications' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
             }`}
           >
@@ -204,31 +204,31 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
                 </span>
               )}
             </div>
-            <span className="text-[11px] mt-1">Activity</span>
+            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Activity</span>
           </button>
 
           {/* 3. Monthly Tracker */}
           <button
             type="button"
             onClick={() => setActiveTab('monthly')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
               activeTab === 'monthly' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
             }`}
           >
             <TrendingUp size={20} />
-            <span className="text-[11px] mt-1">Monthly</span>
+            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Monthly</span>
           </button>
 
           {/* 4. Profile */}
           <button
             type="button"
             onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors ${
+            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
               activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
             }`}
           >
             <User size={20} />
-            <span className="text-[11px] mt-1">Profile</span>
+            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Profile</span>
           </button>
         </div>
       </nav>

@@ -13,9 +13,9 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden lg:flex-row">
       {/* Sticky Top Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center gap-3 z-30 flex-shrink-0 shadow-sm">
+      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center gap-3 z-30 flex-shrink-0 shadow-sm lg:absolute lg:left-0 lg:top-0 lg:z-50 lg:w-64 lg:px-5 lg:py-6 lg:border-b-0 lg:shadow-none">
         <button onClick={onBack} className="p-2 -ml-2 text-slate-600 rounded-full active:bg-slate-100">
           <ArrowLeft size={22} />
         </button>
@@ -26,7 +26,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       </header>
 
       {/* Main Tab Area with dynamic layout fix for chat input */}
-      <main className={`flex-1 min-h-0 relative ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-16' : 'overflow-y-auto pb-28'}`}>
+      <main className={`flex-1 min-w-0 min-h-0 relative lg:order-3 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-16' : 'overflow-y-auto pb-28 lg:pb-0'}`}>
         {activeTab === 'expenses' && (
           <ExpensesTab 
             expenses={sortedExpenses} 
@@ -88,7 +88,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       {activeTab === 'expenses' && (
         <button 
           onClick={() => setActiveTab('add')} 
-          className="absolute bottom-20 right-5 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] active:scale-95 transition-transform z-30" 
+          className="absolute bottom-20 right-5 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] active:scale-95 transition-transform z-30 lg:bottom-8 lg:right-8" 
           title="Add Expense"
         >
           <Plus size={28} />
@@ -96,8 +96,8 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       )}
 
       {/* Pinned Bottom Nav with mobile safe-area protection */}
-      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex justify-around items-center h-16">
+      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)] lg:order-2 lg:static lg:w-64 lg:h-full lg:flex-shrink-0 lg:border-t-0 lg:border-r lg:pb-0 lg:pt-24">
+        <div className="flex justify-around items-center h-16 lg:h-auto lg:flex-col lg:items-stretch lg:gap-2">
           <NavItem 
             icon={Receipt} 
             label="Expenses" 
