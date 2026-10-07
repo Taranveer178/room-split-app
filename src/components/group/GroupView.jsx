@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { ArrowLeft, Plus, Receipt, Settings, Wallet, MessageSquare } from 'lucide-react';
-import { NavItem } from '../common/UI';
+import PrimaryNav from '../common/PrimaryNav';
 import AddExpenseTab from './AddExpenseTab';
 import BalancesTab from './BalancesTab';
 import ExpensesTab from './ExpensesTab';
 import MembersTab from './MembersTab';
 import ChatTab from './ChatTab';
 
-export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpense, onDeleteGroup, onSendNotification, users, currentUser, onBack, showToast }) {
+export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpense, onDeleteGroup, onSendNotification, users, currentUser, onBack, onNavigateDashboard, showToast }) {
   const [activeTab, setActiveTab] = useState('expenses');
   const getUserName = (userId) => users.find((user) => user.id === userId)?.username || 'Unknown';
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
@@ -15,7 +15,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden lg:flex-row">
       {/* Sticky Top Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center gap-3 z-30 flex-shrink-0 shadow-sm lg:absolute lg:left-0 lg:top-0 lg:z-50 lg:w-64 lg:px-5 lg:py-6 lg:border-b-0 lg:shadow-none">
+      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center gap-3 z-30 flex-shrink-0 shadow-sm lg:hidden">
         <button onClick={onBack} className="p-2 -ml-2 text-slate-600 rounded-full active:bg-slate-100">
           <ArrowLeft size={22} />
         </button>
@@ -96,8 +96,17 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       )}
 
       {/* Pinned Bottom Nav with mobile safe-area protection */}
-      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)] lg:order-2 lg:static lg:w-64 lg:h-full lg:flex-shrink-0 lg:border-t-0 lg:border-r lg:pb-0 lg:pt-24">
-        <div className="flex justify-around items-center h-16 lg:h-auto lg:flex-col lg:items-stretch lg:gap-2">
+      <nav className="absolute bottom-0 z-30 w-full border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:static lg:order-2 lg:flex lg:h-full lg:w-64 lg:flex-shrink-0 lg:flex-col lg:border-t-0 lg:border-r lg:bg-white lg:px-4 lg:py-6 lg:pb-6">
+        <div className="hidden border-b border-slate-100 px-2 pb-5 lg:block">
+          <button onClick={onBack} className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-indigo-600">
+            <ArrowLeft size={15} />
+            All spaces
+          </button>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Current group</p>
+          <h2 className="mt-2 truncate text-lg font-bold text-slate-900">{group.name}</h2>
+          <p className="mt-1 text-xs text-slate-500">{group.members.length} members</p>
+        </div>
+        <div className="flex h-16 items-center justify-around lg:mt-5 lg:h-auto lg:flex-col lg:items-stretch lg:gap-1.5">
           <NavItem 
             icon={Receipt} 
             label="Expenses" 
@@ -124,6 +133,29 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
           />
         </div>
       </nav>
+      <PrimaryNav
+        activeItem="groups"
+        onNavigate={onNavigateDashboard}
+        desktopOnly
+      />
     </div>
+  );
+}
+
+function NavItem({ icon: Icon, label, isActive, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={isActive ? 'page' : undefined}
+      className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 transition-colors lg:h-11 lg:flex-row lg:flex-none lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 ${
+        isActive
+          ? 'font-semibold text-indigo-700 lg:bg-indigo-50'
+          : 'text-slate-500 hover:text-slate-800 lg:hover:bg-slate-50'
+      }`}
+    >
+      <Icon size={19} strokeWidth={isActive ? 2.4 : 2} />
+      <span className="text-[10px] lg:text-sm">{label}</span>
+    </button>
   );
 }

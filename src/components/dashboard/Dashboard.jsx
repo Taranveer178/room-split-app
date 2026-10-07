@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Plus, UserPlus, Users, Download, Bell, User, ChevronRight, TrendingUp } from 'lucide-react';
+import { LogOut, Plus, UserPlus, Users, Download, ChevronRight } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Card } from '../common/UI';
+import PrimaryNav from '../common/PrimaryNav';
 import { requestNotificationPermission } from '../../utils/notifications';
 import ActivityTab from './ActivityTab';
 import MonthlyAnalyticsTab from './MonthlyAnalyticsTab';
 import ProfileTabView from './ProfileTab';
 
 
-export default function Dashboard({ user, groups, notifications,expenses= [], onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, showToast }) {
-  const [activeTab, setActiveTab] = useState('groups');
+export default function Dashboard({ user, groups, notifications, expenses = [], onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, onTabChange, initialTab = 'groups', showToast }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   
@@ -53,7 +54,7 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden lg:flex-row">
       {/* Sticky Header */}
-      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-30 flex-shrink-0 lg:absolute lg:left-0 lg:top-0 lg:z-50 lg:w-64 lg:items-center lg:px-5 lg:py-6 lg:border-b-0">
+      <header className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-30 flex-shrink-0 lg:hidden">
         <div className="flex items-center gap-3">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-9 h-9 rounded-xl object-contain shadow-sm" />
           <span className="text-xl font-bold text-slate-900">RoomSplit</span>
@@ -68,13 +69,13 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
       </header>
 
       {/* Main Scrollable Area */}
-      <main className="flex-1 min-w-0 overflow-y-auto pb-24 relative lg:order-3 lg:pb-0">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-24 relative lg:order-2 lg:pb-0">
         
         {/* ============================== */}
         {/* TAB 1: GROUPS (Dashboard Home) */}
         {/* ============================== */}
         {activeTab === 'groups' && (
-          <div className="p-5 animate-in fade-in duration-200 lg:p-10">
+          <div className="mx-auto max-w-6xl p-5 animate-in fade-in duration-200 lg:p-12 xl:p-14">
             {showInstallBanner && (
               <div className="mb-6 bg-slate-900 text-white p-4 rounded-2xl shadow-md flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -95,33 +96,47 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
               </div>
             )}
 
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-slate-900">Hi, {user.username}!</h1>
-              <p className="text-slate-500 mt-1 text-sm">Manage your shared spaces.</p>
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">Your workspace</p>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back, {user.username}</h1>
+                <p className="mt-2 text-sm text-slate-500">Manage your shared spaces and keep every expense in sync.</p>
+              </div>
+              <div className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 text-right shadow-sm sm:block">
+                <p className="text-xs font-medium text-slate-400">Your groups</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-900">{myGroups.length}</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <button onClick={onCreateGroup} className="flex flex-col items-center justify-center p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-700 active:scale-95 transition-all">
-                <Plus size={24} className="mb-2" />
-                <span className="font-semibold text-sm">Create Group</span>
+            <div className="mb-10 grid grid-cols-2 gap-4">
+              <button onClick={onCreateGroup} className="flex min-h-28 items-center justify-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-600 p-5 text-white shadow-lg shadow-indigo-200/50 transition-all hover:-translate-y-0.5 hover:bg-indigo-700 active:scale-[0.98]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Plus size={22} /></span>
+                <span className="text-left"><span className="block font-semibold">Create a group</span><span className="mt-1 block text-xs text-indigo-100">Start splitting together</span></span>
               </button>
-              <button onClick={onJoinGroup} className="flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl text-slate-700 active:scale-95 transition-all shadow-sm">
-                <UserPlus size={24} className="mb-2" />
-                <span className="font-semibold text-sm">Join Group</span>
+              <button onClick={onJoinGroup} className="flex min-h-28 items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md active:scale-[0.98]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><UserPlus size={22} /></span>
+                <span className="text-left"><span className="block font-semibold">Join a group</span><span className="mt-1 block text-xs text-slate-500">Connect with your people</span></span>
               </button>
             </div>
 
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Your Groups</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Your groups</h2>
+                <p className="mt-1 text-sm text-slate-500">Shared spaces you’re part of</p>
+              </div>
+              {myGroups.length > 0 && <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">{myGroups.length} total</span>}
+            </div>
             
             {myGroups.length === 0 ? (
-              <div className="text-center py-10 bg-white border border-dashed border-slate-300 rounded-3xl">
-                <Users size={32} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-500 font-medium text-sm">You aren't in any groups yet.</p>
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100"><Users size={26} className="text-slate-400" /></div>
+                <p className="font-semibold text-slate-700">You aren’t in any groups yet.</p>
+                <p className="mt-1 text-sm text-slate-500">Create a group or join one to get started.</p>
               </div>
             ) : (
               <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
                 {myGroups.map((group) => (
-                  <Card key={group.id} onClick={() => onOpenGroup(group.id)} className="p-4 hover:border-slate-300 transition-colors cursor-pointer">
+                  <Card key={group.id} onClick={() => onOpenGroup(group.id)} className="p-5 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-xl">
@@ -172,68 +187,15 @@ export default function Dashboard({ user, groups, notifications,expenses= [], on
         )}
       </main>
 
-      {/* Main Dashboard Bottom Navigation */}
-      <nav className="bg-white/95 backdrop-blur-md border-t border-slate-200 absolute bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)] lg:order-2 lg:static lg:w-64 lg:h-full lg:flex-shrink-0 lg:border-t-0 lg:border-r lg:pb-0 lg:pt-24">
-        <div className="grid grid-cols-4 items-center h-16 w-full lg:grid-cols-1 lg:h-auto lg:gap-2">
-          {/* 1. Groups */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('groups')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
-              activeTab === 'groups' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
-            }`}
-          >
-            <Users size={20} />
-            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Groups</span>
-          </button>
-
-          {/* 2. Activity with Badge */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('notifications')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors relative lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
-              activeTab === 'notifications' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
-            }`}
-          >
-            <div className="relative inline-flex items-center justify-center">
-              <Bell size={20} />
-              {unreadNotifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 z-20 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 ring-2 ring-white"></span>
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Activity</span>
-          </button>
-
-          {/* 3. Monthly Tracker */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('monthly')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
-              activeTab === 'monthly' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
-            }`}
-          >
-            <TrendingUp size={20} />
-            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Monthly</span>
-          </button>
-
-          {/* 4. Profile */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center justify-center w-full py-1 transition-colors lg:flex-row lg:justify-start lg:gap-3 lg:px-5 lg:py-3 ${
-              activeTab === 'profile' ? 'text-indigo-600 font-bold' : 'text-slate-400 font-medium'
-            }`}
-          >
-            <User size={20} />
-            <span className="text-[11px] mt-1 lg:mt-0 lg:text-sm">Profile</span>
-          </button>
-        </div>
-      </nav>
+      <PrimaryNav
+        activeItem={activeTab}
+        onNavigate={(tab) => {
+          setActiveTab(tab);
+          onTabChange(tab);
+        }}
+        unreadCount={unreadNotifications.length}
+        onLogout={onLogout}
+      />
     </div>
   );
 }
-
-

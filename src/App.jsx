@@ -45,6 +45,7 @@ export default function App() {
     localStorage.getItem('rs_active_user_id') || null
   ));
   const [currentView, setCurrentView] = useState('dashboard');
+  const [dashboardTab, setDashboardTab] = useState('groups');
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -293,6 +294,7 @@ export default function App() {
       ) : currentView === 'dashboard' ? (
         <Dashboard
           user={activeUser}
+          initialTab={dashboardTab}
           groups={groups}
           expenses={expenses}
           onLogout={handleLogout}
@@ -302,6 +304,7 @@ export default function App() {
           onUpdateUser={updateUser}
           notifications={notifications.filter((notification) => notification.recipientId === activeUser.id)}
           onMarkNotificationsRead={markNotificationsRead}
+          onTabChange={setDashboardTab}
         />
       ) : currentView === 'create_group' ? (
         <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
@@ -318,6 +321,11 @@ export default function App() {
           users={users}
           currentUser={activeUser}
           onBack={() => { setCurrentGroupId(null); setCurrentView('dashboard'); }}
+          onNavigateDashboard={(tab) => {
+            setDashboardTab(tab);
+            setCurrentGroupId(null);
+            setCurrentView('dashboard');
+          }}
           showToast={showToast}
         />
       ) : null}
