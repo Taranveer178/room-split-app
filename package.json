@@ -13,6 +13,8 @@
     "firebase": "^12.19.0",
     "firebase-admin": "^14.5.0",
     "lucide-react": "^1.48.0",
+    "qr-scanner": "^1.4.2",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

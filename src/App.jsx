@@ -36,6 +36,9 @@ if ('serviceWorker' in navigator) {
 }
 
 export default function App() {
+  const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('join')
+    || new URLSearchParams(window.location.search).get('invite')
+    || '';
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -44,7 +47,7 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState(() => (
     localStorage.getItem('rs_active_user_id') || null
   ));
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState(() => (inviteCodeFromUrl ? 'join_group' : 'dashboard'));
   const [dashboardTab, setDashboardTab] = useState('groups');
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -123,7 +126,7 @@ export default function App() {
   const handleLogin = (userId) => {
     setActiveUserId(userId);
     localStorage.setItem('rs_active_user_id', userId);
-    setCurrentView('dashboard');
+    setCurrentView(inviteCodeFromUrl ? 'join_group' : 'dashboard');
   };
 
   const handleLogout = () => {
@@ -297,7 +300,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
+      <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50 lg:max-w-none">
         <div className="relative flex items-center justify-center mb-4">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" />
         </div>
@@ -330,7 +333,7 @@ export default function App() {
       ) : currentView === 'create_group' ? (
         <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
       ) : currentView === 'join_group' ? (
-        <JoinGroupModal user={activeUser} groups={groups} onUpdateGroup={updateGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
+        <JoinGroupModal user={activeUser} groups={groups} onUpdateGroup={updateGroup} initialCode={inviteCodeFromUrl} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
       ) : currentView === 'group' && currentGroupId ? (
         <GroupView
           group={groups.find((group) => group.id === currentGroupId)}
@@ -338,6 +341,7 @@ export default function App() {
           onSaveExpense={saveExpense}
           onDeleteExpense={deleteExpense}
           onDeleteGroup={deleteGroup}
+          onUpdateGroup={updateGroup}
           onSendNotification={saveNotifications}
           users={users}
           currentUser={activeUser}

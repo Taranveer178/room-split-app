@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
-  ChevronLeft, ChevronRight, TrendingUp, 
-  ArrowUpRight, PieChart, Receipt, IndianRupee,
+  ChevronLeft, ChevronRight,
+  ArrowUpRight, ArrowDownLeft, PieChart, Receipt,
   Utensils, Car, Home, ShoppingBag, Zap, HelpCircle, X, CalendarDays
 } from 'lucide-react';
 
@@ -81,6 +81,10 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
     const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     return expenses.filter(exp => exp.date && exp.date.startsWith(monthPrefix));
   }, [expenses, year, month]);
+  const spendingExpenses = useMemo(
+    () => monthlyExpenses.filter((expense) => !expense.isSettlement && expense.category !== 'Settlement'),
+    [monthlyExpenses]
+  );
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -89,7 +93,7 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
     let youPaidTotal = 0;
     const categoryTotals = {};
 
-    monthlyExpenses.forEach((exp) => {
+    spendingExpenses.forEach((exp) => {
       const amount = parseFloat(exp.totalAmount) || 0;
       totalGroupSpent += amount;
 
@@ -102,26 +106,39 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
       }
 
       const cat = exp.category || 'Other';
-      categoryTotals[cat] = (categoryTotals[cat] || 0) + amount;
+      const personalShare = parseFloat(exp.splits?.[userId]) || 0;
+      if (personalShare > 0) {
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + personalShare;
+      }
     });
 
     const categoryList = Object.entries(categoryTotals)
       .map(([name, total]) => ({
         name,
         total,
-        percentage: totalGroupSpent > 0 ? ((total / totalGroupSpent) * 100).toFixed(1) : 0
+        percentage: yourShareTotal > 0 ? ((total / yourShareTotal) * 100).toFixed(1) : 0
       }))
       .sort((a, b) => b.total - a.total);
 
     return { totalGroupSpent, yourShareTotal, youPaidTotal, categoryList };
-  }, [monthlyExpenses, userId]);
+  }, [spendingExpenses, userId]);
 
   const breakdownExpenses = selectedBreakdown?.type === 'paid'
-    ? monthlyExpenses.filter((expense) => expense.paidBy === user?.id)
+    ? spendingExpenses.filter((expense) => expense.paidBy === userId)
+    : selectedBreakdown?.type === 'share'
+      ? spendingExpenses.filter((expense) => (parseFloat(expense.splits?.[userId]) || 0) > 0)
     : selectedBreakdown?.type === 'category'
-      ? monthlyExpenses.filter((expense) => (expense.category || 'Other') === selectedBreakdown.category)
-      : monthlyExpenses;
-  const breakdownTotal = breakdownExpenses.reduce((total, expense) => total + (parseFloat(expense.totalAmount) || 0), 0);
+      ? spendingExpenses.filter((expense) => (
+        (expense.category || 'Other') === selectedBreakdown.category
+        && (parseFloat(expense.splits?.[userId]) || 0) > 0
+      ))
+      : spendingExpenses;
+  const breakdownTotal = breakdownExpenses.reduce((total, expense) => (
+    total + (selectedBreakdown?.type === 'share' || selectedBreakdown?.type === 'category'
+      ? parseFloat(expense.splits?.[userId]) || 0
+      : parseFloat(expense.totalAmount) || 0)
+  ), 0);
+  const netBalance = stats.youPaidTotal - stats.yourShareTotal;
 
   const openBreakdown = (type, title, category) => {
     setSelectedBreakdown({ type, title, category });
@@ -176,18 +193,13 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
 
         <div className="relative z-10">
           <div className="flex items-center justify-between text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">
-            <span>Your Net Share</span>
+            <span>Your Monthly Summary</span>
             <span className="text-[11px] bg-white/15 backdrop-blur-md px-3 py-0.5 rounded-full text-white font-semibold border border-white/20 shadow-inner">
-              {monthlyExpenses.length} bill{monthlyExpenses.length === 1 ? '' : 's'}
+              {spendingExpenses.length} bill{spendingExpenses.length === 1 ? '' : 's'}
             </span>
           </div>
 
-          <div className="flex items-center gap-1 text-3xl sm:text-4xl font-black font-mono tracking-tight text-white my-2">
-            <IndianRupee size={28} className="stroke-[3]" />
-            <span>{stats.yourShareTotal.toFixed(2)}</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-4 mt-3 border-t border-white/15">
+          <div className="grid grid-cols-1 gap-2 pt-4 mt-3 border-t border-white/15 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => openBreakdown('paid', 'You Paid Out')}
@@ -198,25 +210,39 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
                 <ArrowUpRight size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">You Paid Out</p>
+                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">Total I Paid</p>
                 <p className="text-sm font-extrabold text-white font-mono truncate">₹{stats.youPaidTotal.toFixed(2)}</p>
               </div>
             </button>
 
             <button
               type="button"
-              onClick={() => openBreakdown('all', 'Total Group Spending')}
+              onClick={() => openBreakdown('share', 'My Share')}
               className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-2.5 text-left backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-              aria-label={`View all group expenses, totaling ₹${stats.totalGroupSpent.toFixed(2)}`}
+              aria-label={`View your expense shares, totaling ₹${stats.yourShareTotal.toFixed(2)}`}
             >
               <div className="w-9 h-9 rounded-xl bg-white/20 text-blue-200 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={18} strokeWidth={2.5} />
+                <Receipt size={18} strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">Total Group</p>
-                <p className="text-sm font-extrabold text-white font-mono truncate">₹{stats.totalGroupSpent.toFixed(2)}</p>
+                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">My Share</p>
+                <p className="text-sm font-extrabold text-white font-mono truncate">₹{stats.yourShareTotal.toFixed(2)}</p>
               </div>
             </button>
+
+            <div className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-2.5 backdrop-blur-md">
+              <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${netBalance > 0 ? 'bg-emerald-400/20 text-emerald-300' : netBalance < 0 ? 'bg-rose-400/20 text-rose-200' : 'bg-white/20 text-blue-100'}`}>
+                {netBalance > 0 ? <ArrowDownLeft size={18} strokeWidth={2.5} /> : <ArrowUpRight size={18} strokeWidth={2.5} />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">
+                  {netBalance > 0 ? 'You Need To Receive' : netBalance < 0 ? 'You Need To Give' : "You're Settled"}
+                </p>
+                <p className="truncate font-mono text-sm font-extrabold text-white">
+                  ₹{Math.abs(netBalance).toFixed(2)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -331,7 +357,18 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
                             <p className="mt-0.5 truncate text-[10px] text-slate-500">{groupName} · {expense.category || 'Other'} · {payerName}</p>
                             <p className="mt-1 text-[10px] text-slate-400">{expense.date ? new Date(`${expense.date}T00:00:00`).toLocaleDateString() : ''}</p>
                           </div>
-                          <span className="flex-shrink-0 font-mono text-xs font-bold text-slate-900">₹{(parseFloat(expense.totalAmount) || 0).toFixed(2)}</span>
+                          <div className="flex-shrink-0 text-right">
+                            <span className="block font-mono text-xs font-bold text-slate-900">
+                              ₹{(selectedBreakdown.type === 'share' || selectedBreakdown.type === 'category'
+                                ? parseFloat(expense.splits?.[userId]) || 0
+                                : parseFloat(expense.totalAmount) || 0).toFixed(2)}
+                            </span>
+                            {(selectedBreakdown.type === 'share' || selectedBreakdown.type === 'category') && (
+                              <span className="mt-0.5 block text-[10px] text-slate-400">
+                                of ₹{(parseFloat(expense.totalAmount) || 0).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                         </li>
                       );
                     })}
