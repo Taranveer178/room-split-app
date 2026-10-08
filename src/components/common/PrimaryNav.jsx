@@ -24,11 +24,19 @@ export default function PrimaryNav({
   return (
     <nav className={`${desktopOnly ? 'hidden md:flex md:order-first' : 'flex w-full px-1 md:flex'} z-40 md:static md:h-full md:w-16 md:flex-shrink-0 md:flex-col md:items-center md:rounded-none md:border-r md:border-t-0 md:bg-white md:px-2 md:py-5 md:pb-5 md:shadow-none lg:w-20 lg:px-3`}>
       <div className="hidden items-center justify-center md:flex">
-        <img
-          src={roomsplitIcon}
-          alt="RoomSplit"
-          className="h-11 w-11 rounded-2xl object-contain shadow-sm"
-        />
+        <button
+          type="button"
+          onClick={() => onNavigate('groups')}
+          aria-label="Go to RoomSplit home"
+          title="RoomSplit home"
+          className="rounded-2xl transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          <img
+            src={roomsplitIcon}
+            alt="RoomSplit"
+            className="h-11 w-11 rounded-2xl object-contain shadow-sm"
+          />
+        </button>
       </div>
 
       <div className="grid h-14 w-full grid-cols-4 items-center md:mt-8 md:h-auto md:grid-cols-1 md:gap-2">

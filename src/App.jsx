@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   collection,
   deleteDoc,
@@ -22,6 +22,54 @@ import Toast from './components/common/Toast';
 import AdminPanel from './components/admin/AdminPanel';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
+const getGroupSlug = (name, fallback = 'group') => {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return slug || fallback;
+};
+
+const getRouteFromLocation = () => {
+  const url = new URL(window.location.href);
+  const inviteCode = url.searchParams.get('join') || url.searchParams.get('invite') || '';
+  const groupRoute = url.pathname.match(/^\/groups\/([^/]+)$/);
+
+  if (url.pathname === '/groups/create') return { view: 'create_group' };
+  if (url.pathname === '/groups/join' || inviteCode) {
+    return { view: 'join_group', inviteCode };
+  }
+  if (groupRoute) {
+    return { view: 'group', groupSlug: decodeURIComponent(groupRoute[1]) };
+  }
+  return {
+    view: 'dashboard',
+    dashboardTab: url.searchParams.get('tab') || 'groups',
+  };
+};
+
+const getRouteUrl = (route) => {
+  if (route.view === 'group' && (route.groupName || route.groupSlug || route.groupId)) {
+    const slug = route.groupName
+      ? getGroupSlug(route.groupName, route.groupId)
+      : route.groupSlug || route.groupId;
+    return `/groups/${encodeURIComponent(slug)}`;
+  }
+  if (route.view === 'create_group') return '/groups/create';
+  if (route.view === 'join_group') {
+    const params = new URLSearchParams();
+    if (route.inviteCode) params.set('join', route.inviteCode);
+    const search = params.toString();
+    return `/groups/join${search ? `?${search}` : ''}`;
+  }
+  return route.dashboardTab && route.dashboardTab !== 'groups'
+    ? `/?tab=${encodeURIComponent(route.dashboardTab)}`
+    : '/';
+};
+
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -36,9 +84,7 @@ if ('serviceWorker' in navigator) {
 }
 
 export default function App() {
-  const inviteCodeFromUrl = new URLSearchParams(window.location.search).get('join')
-    || new URLSearchParams(window.location.search).get('invite')
-    || '';
+  const [initialRoute] = useState(getRouteFromLocation);
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -47,10 +93,55 @@ export default function App() {
   const [activeUserId, setActiveUserId] = useState(() => (
     localStorage.getItem('rs_active_user_id') || null
   ));
-  const [currentView, setCurrentView] = useState(() => (inviteCodeFromUrl ? 'join_group' : 'dashboard'));
-  const [dashboardTab, setDashboardTab] = useState('groups');
-  const [currentGroupId, setCurrentGroupId] = useState(null);
+  const [currentView, setCurrentView] = useState(initialRoute.view);
+  const [dashboardTab, setDashboardTab] = useState(initialRoute.dashboardTab || 'groups');
+  const [currentGroupRoute, setCurrentGroupRoute] = useState(
+    initialRoute.groupId || initialRoute.groupSlug || null
+  );
   const [toast, setToast] = useState(null);
+  const historyInitializedRef = useRef(false);
+
+  const applyRoute = (route) => {
+    setCurrentView(route.view);
+    setCurrentGroupRoute(route.groupId || route.groupSlug || null);
+    if (route.view === 'dashboard') setDashboardTab(route.dashboardTab || 'groups');
+  };
+
+  const navigateTo = (route, { replace = false } = {}) => {
+    const state = { roomSplitRoute: route };
+    const url = getRouteUrl(route);
+    if (replace) window.history.replaceState(state, '', url);
+    else window.history.pushState(state, '', url);
+    applyRoute(route);
+  };
+
+  const goBack = () => {
+    window.history.back();
+  };
+
+  useEffect(() => {
+    if (window.location.pathname === '/admin') return undefined;
+
+    const sentinelState = { roomSplitSentinel: true };
+    if (!historyInitializedRef.current) {
+      window.history.replaceState(sentinelState, '', '/');
+      window.history.pushState({ roomSplitRoute: initialRoute }, '', getRouteUrl(initialRoute));
+      historyInitializedRef.current = true;
+    }
+
+    const handlePopState = (event) => {
+      if (event.state?.roomSplitRoute) {
+        applyRoute(event.state.roomSplitRoute);
+        return;
+      }
+
+      applyRoute({ view: 'dashboard', dashboardTab: 'groups' });
+      window.history.pushState(sentinelState, '', '/');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [initialRoute]);
 
   useEffect(() => {
     if (window.location.pathname === '/admin') return undefined;
@@ -126,14 +217,15 @@ export default function App() {
   const handleLogin = (userId) => {
     setActiveUserId(userId);
     localStorage.setItem('rs_active_user_id', userId);
-    setCurrentView(inviteCodeFromUrl ? 'join_group' : 'dashboard');
+    navigateTo(initialRoute.view === 'join_group'
+      ? { view: 'join_group', inviteCode: initialRoute.inviteCode }
+      : { view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
   };
 
   const handleLogout = () => {
     setActiveUserId(null);
     localStorage.removeItem('rs_active_user_id');
-    setCurrentGroupId(null);
-    setCurrentView('dashboard');
+    navigateTo({ view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
   };
 
   const saveUser = async (newUser) => {
@@ -271,8 +363,7 @@ export default function App() {
       throw new Error('Settle all group balances of ₹1 or more before deleting this group.');
     }
 
-    setCurrentGroupId(null);
-    setCurrentView('dashboard');
+    navigateTo({ view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
 
     if (db) {
       await Promise.all(groupExpenses.map((expense) => deleteDoc(doc(db, 'expenses', expense.id))));
@@ -293,6 +384,10 @@ export default function App() {
   };
 
   const activeUser = users.find((user) => user.id === activeUserId);
+  const activeGroup = groups.find((group) => (
+    group.id === currentGroupRoute
+    || getGroupSlug(group.name, group.id) === currentGroupRoute
+  ));
 
   if (window.location.pathname === '/admin') {
     return <AdminPanel />;
@@ -316,29 +411,40 @@ export default function App() {
         <AuthScreen users={users} onSaveUser={saveUser} onLogin={handleLogin} />
       ) : currentView === 'dashboard' ? (
         <Dashboard
+          key={dashboardTab}
           user={activeUser}
           initialTab={dashboardTab}
           groups={groups}
           expenses={expenses}
           onLogout={handleLogout}
-          onOpenGroup={(id) => { setCurrentGroupId(id); setCurrentView('group'); }}
-          onCreateGroup={() => setCurrentView('create_group')}
-          onJoinGroup={() => setCurrentView('join_group')}
+          onOpenGroup={(id) => {
+            const group = groups.find((item) => item.id === id);
+            if (group) navigateTo({ view: 'group', groupId: group.id, groupName: group.name });
+          }}
+          onCreateGroup={() => navigateTo({ view: 'create_group' })}
+          onJoinGroup={() => navigateTo({ view: 'join_group' })}
           onUpdateUser={updateUser}
           notifications={notifications.filter((notification) => notification.recipientId === activeUser.id)}
           onMarkNotificationsRead={markNotificationsRead}
           onClearNotifications={clearNotifications}
-          onTabChange={setDashboardTab}
+          onTabChange={(tab) => navigateTo({ view: 'dashboard', dashboardTab: tab })}
         />
       ) : currentView === 'create_group' ? (
-        <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
+        <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={goBack} showToast={showToast} />
       ) : currentView === 'join_group' ? (
-        <JoinGroupModal user={activeUser} groups={groups} onUpdateGroup={updateGroup} initialCode={inviteCodeFromUrl} onBack={() => setCurrentView('dashboard')} showToast={showToast} />
-      ) : currentView === 'group' && currentGroupId ? (
-        <GroupView
-          group={groups.find((group) => group.id === currentGroupId)}
+        <JoinGroupModal
+          user={activeUser}
           groups={groups}
-          expenses={expenses.filter((expense) => expense.groupId === currentGroupId)}
+          onUpdateGroup={updateGroup}
+          initialCode={new URLSearchParams(window.location.search).get('join') || new URLSearchParams(window.location.search).get('invite') || ''}
+          onBack={goBack}
+          showToast={showToast}
+        />
+      ) : currentView === 'group' && activeGroup ? (
+        <GroupView
+          group={activeGroup}
+          groups={groups}
+          expenses={expenses.filter((expense) => expense.groupId === activeGroup.id)}
           onSaveExpense={saveExpense}
           onDeleteExpense={deleteExpense}
           onDeleteGroup={deleteGroup}
@@ -346,11 +452,9 @@ export default function App() {
           onSendNotification={saveNotifications}
           users={users}
           currentUser={activeUser}
-          onBack={() => { setCurrentGroupId(null); setCurrentView('dashboard'); }}
+          onBack={goBack}
           onNavigateDashboard={(tab) => {
-            setDashboardTab(tab);
-            setCurrentGroupId(null);
-            setCurrentView('dashboard');
+            navigateTo({ view: 'dashboard', dashboardTab: tab });
           }}
           showToast={showToast}
         />

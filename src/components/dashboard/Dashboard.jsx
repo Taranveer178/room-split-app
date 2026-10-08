@@ -92,10 +92,17 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       {/* --- MOBILE STICKY HEADER --- */}
       <header className="relative z-30 flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-5 py-4 shadow-sm backdrop-blur-lg md:hidden">
         <div className="flex items-center gap-3">
-          <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-100">
-            <img src={roomsplitIcon} alt="RoomSplit" className="w-7 h-7 object-contain" />
-          </div>
-          <span className="text-xl font-extrabold text-slate-800 tracking-tight">RoomSplit</span>
+          <button
+            type="button"
+            onClick={() => handleTabSwitch('groups')}
+            aria-label="Go to RoomSplit home"
+            className="flex items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            <span className="rounded-xl border border-slate-100 bg-white p-1.5 shadow-sm">
+              <img src={roomsplitIcon} alt="" className="h-7 w-7 object-contain" />
+            </span>
+            <span className="text-xl font-extrabold tracking-tight text-slate-800">RoomSplit</span>
+          </button>
         </div>
         
         {/* Tooltip Wrapper for Logout */}

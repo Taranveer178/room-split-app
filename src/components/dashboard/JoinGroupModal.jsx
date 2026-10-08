@@ -49,10 +49,6 @@ export default function JoinGroupModal({ user, groups, onUpdateGroup, initialCod
   }, [isScanning, showToast]);
 
   const handleBack = () => {
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.delete('join');
-    currentUrl.searchParams.delete('invite');
-    window.history.replaceState({}, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
     onBack();
   };
 
