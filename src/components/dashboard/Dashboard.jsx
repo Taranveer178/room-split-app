@@ -154,14 +154,10 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
                   <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
                     Welcome back, <br className="hidden sm:block"/> {user.username}
                   </h1>
-                  <p className="mt-2 text-sm sm:text-base text-slate-500 max-w-md">Manage your shared spaces and keep every expense in sync effortlessly.</p>
+                 
                 </div>
                 
-                {/* Stats Widget */}
-                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 sm:px-8 sm:py-5 flex items-center justify-between sm:flex-col sm:justify-center shadow-sm w-full sm:w-auto hover:shadow-md transition-shadow">
-                  <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0 sm:mb-1">Total Groups</p>
-                  <p className="text-2xl sm:text-4xl font-black text-slate-800">{myGroups.length}</p>
-                </div>
+                
               </div>
 
               {/* Action Buttons (Side by Side on mobile) */}
