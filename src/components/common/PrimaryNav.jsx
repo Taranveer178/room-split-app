@@ -22,8 +22,8 @@ export default function PrimaryNav({
   desktopOnly = false,
 }) {
   return (
-    <nav className={`${desktopOnly ? 'hidden lg:flex' : 'flex w-full rounded-full border border-white/70 bg-white/90 px-1 shadow-lg shadow-slate-900/10 backdrop-blur-xl lg:flex'} z-40 lg:static lg:order-1 lg:h-full lg:w-20 lg:flex-shrink-0 lg:flex-col lg:items-center lg:rounded-none lg:border-r lg:border-t-0 lg:bg-white lg:px-3 lg:py-5 lg:pb-5 lg:shadow-none`}>
-      <div className="hidden items-center justify-center lg:flex">
+    <nav className={`${desktopOnly ? 'hidden md:flex' : 'flex w-full px-1 md:flex'} z-40 md:static md:order-1 md:h-full md:w-16 md:flex-shrink-0 md:flex-col md:items-center md:rounded-none md:border-r md:border-t-0 md:bg-white md:px-2 md:py-5 md:pb-5 md:shadow-none lg:w-20 lg:px-3`}>
+      <div className="hidden items-center justify-center md:flex">
         <img
           src={roomsplitIcon}
           alt="RoomSplit"
@@ -31,7 +31,7 @@ export default function PrimaryNav({
         />
       </div>
 
-      <div className="grid h-14 w-full grid-cols-4 items-center lg:mt-8 lg:h-auto lg:grid-cols-1 lg:gap-2">
+      <div className="grid h-14 w-full grid-cols-4 items-center md:mt-8 md:h-auto md:grid-cols-1 md:gap-2">
         {ITEMS.map(({ id, label, icon: Icon }) => {
           const isActive = activeItem === id;
           return (
@@ -41,10 +41,10 @@ export default function PrimaryNav({
               onClick={() => onNavigate(id)}
               aria-label={label}
               aria-current={isActive ? 'page' : undefined}
-              className={`group relative flex h-full w-full flex-col items-center justify-center gap-1 transition-colors lg:h-12 lg:rounded-2xl ${
+              className={`group relative flex h-full w-full flex-col items-center justify-center gap-1 transition-colors md:h-12 md:rounded-2xl ${
                 isActive
-                  ? 'text-indigo-600 lg:bg-indigo-50'
-                  : 'text-slate-400 hover:text-slate-700 lg:hover:bg-slate-50'
+                  ? 'text-indigo-700 md:text-indigo-600 md:bg-indigo-50'
+                  : 'text-slate-700 hover:text-slate-900 md:text-slate-400 md:hover:text-slate-700 md:hover:bg-slate-50'
               }`}
             >
               <span className="relative inline-flex items-center justify-center">
@@ -53,8 +53,8 @@ export default function PrimaryNav({
                   <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
                 )}
               </span>
-              <span className="text-[10px] lg:hidden">{label}</span>
-              <span className="pointer-events-none invisible absolute left-[calc(100%+12px)] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 lg:block">
+              <span className="text-[10px] font-semibold md:hidden">{label}</span>
+              <span className="pointer-events-none invisible absolute left-[calc(100%+12px)] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 md:block">
                 {label}
               </span>
             </button>
@@ -67,7 +67,7 @@ export default function PrimaryNav({
           type="button"
           onClick={onLogout}
           aria-label="Log out"
-          className="group relative mt-auto hidden h-12 w-full items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 lg:flex"
+          className="group relative mt-auto hidden h-12 w-full items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 md:flex"
         >
           <LogOut size={20} />
           <span className="pointer-events-none invisible absolute left-[calc(100%+12px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100">

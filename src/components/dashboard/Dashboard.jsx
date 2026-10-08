@@ -63,7 +63,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
   };
 
   return (
-    <div className="flex h-screen min-h-screen flex-col relative overflow-hidden bg-slate-50 font-sans lg:flex-row">
+    <div className="flex h-screen min-h-screen flex-col relative overflow-hidden bg-slate-50 font-sans md:flex-row">
       
       {/* --- SUBTLE BACKGROUND EFFECTS --- */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-[pulse_8s_ease-in-out_infinite] pointer-events-none z-0"></div>
@@ -90,7 +90,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       </header>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 min-w-0 overflow-y-auto pb-32 relative z-10 lg:order-2 lg:pb-0 scrollbar-hide">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-32 relative z-10 md:order-2 md:pb-0 scrollbar-hide">
         <div className={`transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'} h-full`}>
           
           {/* ============================== */}
@@ -251,13 +251,13 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
 
       {/* --- FLOATING LIQUID GLASS PILL (Mobile Bottom Nav) --- */}
       {/* Centered on mobile via left-1/2, max width controlled so it doesn't break */}
-      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-[26rem] -translate-x-1/2 lg:static lg:order-1 lg:h-full lg:w-20 lg:max-w-none lg:translate-x-0 lg:flex-shrink-0">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-[26rem] -translate-x-1/2 md:static md:order-1 md:h-full md:w-16 md:max-w-none md:translate-x-0 md:flex-shrink-0 lg:w-20">
         
         {/* 
           Glass Wrapper: Added bg-slate-900/10 for dark/blue tint, 
           p-1.5 so PrimaryNav isn't clipped against the curved border 
         */}
-        <div className="rounded-full border border-blue-500/20 bg-slate-900/10 p-1.5 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.3)] backdrop-blur-2xl lg:h-full lg:rounded-none lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+        <div className="rounded-full border border-blue-500/20 bg-slate-900/10 p-1.5 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.3)] backdrop-blur-2xl md:h-full md:rounded-none md:border-none md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none">
           
           <PrimaryNav
             activeItem={activeTab}
