@@ -3,7 +3,7 @@ import {
   CheckCircle2, Send, Copy, AlertTriangle, 
   CheckCheck, Sparkles, ArrowRightLeft, 
   PlusCircle, ChevronDown, ChevronUp, Receipt, 
-  User
+  User, IndianRupee, ArrowUpRight, ArrowDownLeft, X
 } from 'lucide-react';
 import { calculateSettlements } from '../../utils/settlement';
 import { Button } from '../common/UI';
@@ -217,14 +217,12 @@ export default function BalancesTab({
         const payerName = currentUser.username || getUserName(currentUser.id);
         const message = `${payerName} recorded a payment of ₹${amt.toFixed(2)} to you.`;
 
-        // 1. In-app database notification
         await sendPaymentNotification(
           customPayee,
           'PAYMENT_RECORDED',
           message
         );
 
-        // 2. Mobile/Browser Web Push Notification via Vercel
         await triggerPushNotification({
           recipientId: customPayee,
           title: 'Payment Received',
@@ -257,44 +255,73 @@ export default function BalancesTab({
   };
 
   return (
-    <div className="p-4 pb-28 space-y-5 relative min-h-full bg-slate-50">
+    <div className="p-4 sm:p-6 lg:p-10 space-y-5 pb-[130px] md:pb-36 relative min-h-full max-w-5xl mx-auto animate-in fade-in duration-300">
       
-      {/* Header Balance Card */}
-      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[24px] p-6 text-white shadow-xl border border-indigo-900/50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-        <h2 className="text-indigo-200/80 font-semibold mb-1 text-[11px] uppercase tracking-widest flex items-center gap-2">
-          Your Net Balance
-        </h2>
-        <div className="text-4xl font-black tracking-tight font-mono my-2">
-          {myBalance < 0 ? '-' : ''}₹{Math.abs(myBalance).toFixed(2)}
-        </div>
-        <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/5">
-          <div className={`w-2 h-2 rounded-full ${myBalance > 0 ? 'bg-emerald-400' : myBalance < 0 ? 'bg-rose-400' : 'bg-slate-400'}`} />
-          <p className="text-xs font-medium text-slate-100">
-            {myBalance > 0 ? 'You need to receive money' : myBalance < 0 ? 'You need to pay' : 'You are completely settled'}
-          </p>
+      {/* Ambient background glows */}
+      <div className="absolute top-0 right-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Hero Net Balance Card (Liquid Gradient Glass) */}
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 p-6 sm:p-8 text-white shadow-[0_12px_40px_rgba(37,99,235,0.25)] border border-white/20">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-cyan-400/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-[11px] font-bold tracking-widest uppercase text-blue-200 block mb-1">
+              Your Net Position
+            </span>
+            <div className="flex items-center gap-1 text-4xl sm:text-5xl font-black font-mono tracking-tight my-1 text-white">
+              <span>{myBalance < 0 ? '-' : ''}₹{Math.abs(myBalance).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/20 shadow-sm self-start sm:self-auto">
+            {myBalance > 0 ? (
+              <>
+                <ArrowDownLeft size={16} className="text-emerald-300 stroke-[2.5]" />
+                <span className="text-xs font-bold text-emerald-100">You need to receive money</span>
+              </>
+            ) : myBalance < 0 ? (
+              <>
+                <ArrowUpRight size={16} className="text-rose-300 stroke-[2.5]" />
+                <span className="text-xs font-bold text-rose-100">You need to money</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={16} className="text-blue-200" />
+                <span className="text-xs font-bold text-blue-100">All settled up</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
       
       {/* SETTLEMENTS SECTION */}
       <div>
-        <div className="flex items-end justify-between mb-4 px-1">
+        <div className="flex items-center justify-between mb-3 px-1">
           <div>
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">Balances</h3>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Balances & Dues</h3>
           </div>
-          <div className="flex bg-slate-200/60 p-1 rounded-xl">
+
+          {/* Smart vs Exact segmented toggle */}
+          <div className="flex bg-white/80 backdrop-blur-md p-1 rounded-2xl border border-white/70 shadow-2xs">
             <button 
               onClick={() => { setShowOptimized(true); setExpandedId(null); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
-                showOptimized ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                showOptimized 
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20' 
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Sparkles size={13} /> Smart
             </button>
             <button 
               onClick={() => { setShowOptimized(false); setExpandedId(null); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
-                !showOptimized ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                !showOptimized 
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20' 
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ArrowRightLeft size={13} /> Exact
@@ -303,12 +330,12 @@ export default function BalancesTab({
         </div>
         
         {displayedSettlements.length === 0 ? (
-          <div className="bg-white rounded-3xl p-8 text-center border border-slate-100 shadow-sm">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
+          <div className="rounded-[28px] bg-white/80 backdrop-blur-2xl p-10 text-center border border-white/70 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-3 shadow-inner">
               <CheckCircle2 size={32} />
             </div>
-            <p className="text-base font-bold text-slate-800">All Settled Up</p>
-            <p className="text-xs text-slate-500 mt-1">No outstanding balances remaining.</p>
+            <p className="text-base font-extrabold text-slate-800">All Settled Up</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">No outstanding dues or debts remaining across your room.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -324,59 +351,63 @@ export default function BalancesTab({
               const hasCustomUpi = Boolean(getMemberUpi(settlement.to));
               
               let statusText = `${fromName} needs to pay ${toName}`;
-              let amountColor = 'text-slate-800';
-              let badgeColor = 'bg-slate-100 text-slate-600';
+              let amountBadge = 'text-slate-800 bg-white/60 border-slate-200/50';
               
               if (iAmFrom) {
                 statusText = `You need to pay ${toName}`;
-                amountColor = 'text-rose-600';
-                badgeColor = 'bg-rose-50 text-rose-600 border border-rose-100';
+                amountBadge = 'text-rose-600 bg-rose-50/80 border-rose-200/70';
               } else if (iAmTo) {
                 statusText = `${fromName} needs to pay you`;
-                amountColor = 'text-emerald-600';
-                badgeColor = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+                amountBadge = 'text-emerald-600 bg-emerald-50/80 border-emerald-200/70';
               }
               const avatarMemberId = iAmFrom ? settlement.to : settlement.from;
               const avatarMember = users.find((member) => member.id === avatarMemberId);
               const avatarName = getUserName(avatarMemberId) || 'Roommate';
 
               return (
-                <div key={index} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200">
+                <div 
+                  key={index} 
+                  className={`rounded-[26px] backdrop-blur-2xl border transition-all duration-300 overflow-hidden ${
+                    isExpanded
+                      ? 'bg-white/95 border-blue-300/80 shadow-[0_12px_36px_rgba(37,99,235,0.08)]'
+                      : 'bg-white/80 border-white/70 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:bg-white/95 hover:border-white'
+                  }`}
+                >
                   {/* Collapsed Header Bar */}
                   <div 
                     onClick={() => setExpandedId(isExpanded ? null : index)}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                    className="p-4 sm:p-4.5 flex items-center justify-between cursor-pointer select-none"
                   >
                     <div className="flex items-center gap-3.5">
                       {avatarMember?.photoDataUrl ? (
-                        <img src={avatarMember.photoDataUrl} alt={`${avatarName} profile`} className="h-10 w-10 rounded-full object-cover" />
+                        <img src={avatarMember.photoDataUrl} alt={`${avatarName} profile`} className="h-11 w-11 rounded-2xl object-cover shadow-2xs border border-white" />
                       ) : (
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${badgeColor}`}>
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-50 to-indigo-100 border border-blue-200/50 flex items-center justify-center font-black text-blue-700 shadow-2xs">
                           {avatarName.charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">{statusText}</p>
-                        <p className={`text-sm font-bold font-mono mt-0.5 ${amountColor}`}>
-                          ₹{settlement.amount.toFixed(2)}
-                        </p>
+                        <p className="text-sm font-bold text-slate-800 leading-tight">{statusText}</p>
+                        <div className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-xs font-mono font-black border mt-1 ${amountBadge}`}>
+                          <span>₹{settlement.amount.toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                      {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    <div className="w-8 h-8 rounded-full bg-slate-100/70 flex items-center justify-center text-slate-400">
+                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </div>
                   </div>
 
                   {/* Expanded Actions Panel */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-1 bg-slate-50/50 border-t border-slate-100">
+                    <div className="px-4 pb-4 pt-2 bg-blue-50/20 border-t border-slate-100/80 animate-in fade-in duration-150">
                       
-                      {/* Breakdown Button */}
+                      {/* Breakdown Trigger for Exact Mode */}
                       {!showOptimized && (
-                        <div className="flex justify-center mb-3 mt-2">
+                        <div className="flex justify-center mb-3">
                           <button 
                             onClick={() => setBreakdownData({ from: settlement.from, to: settlement.to, amount: settlement.amount, fromName, toName })}
-                            className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 bg-indigo-50/80 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-3.5 py-1.5 rounded-full hover:bg-blue-100 transition-colors shadow-2xs"
                           >
                             <Receipt size={13} /> View expense breakdown
                           </button>
@@ -385,10 +416,10 @@ export default function BalancesTab({
 
                       {/* Pay Options (Sender) */}
                       {iAmFrom && (
-                        <div className="space-y-2 mt-2">
+                        <div className="space-y-2.5">
                           {!hasCustomUpi && (
-                            <div className="text-[11px] text-amber-600 flex items-start gap-1.5 bg-amber-50 px-3 py-2 rounded-xl mb-3">
-                              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                            <div className="text-[11px] text-amber-700 flex items-start gap-1.5 bg-amber-50/80 border border-amber-200/60 p-3 rounded-2xl">
+                              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5 text-amber-600" />
                               <span className="leading-snug">{toName} hasn't linked a UPI ID yet. Using default fallback.</span>
                             </div>
                           )}
@@ -398,13 +429,13 @@ export default function BalancesTab({
                                 const note = encodeURIComponent(`RoomSplit to ${toName}`);
                                 window.location.href = `gpay://upi/pay?pa=${payeeUpi}&pn=${encodeURIComponent(toName)}&am=${settlement.amount.toFixed(2)}&cu=INR&tn=${note}`;
                               }}
-                              className="flex items-center justify-center gap-2 py-3 px-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 active:scale-[0.98] transition-all shadow-sm"
+                              className="flex items-center justify-center gap-2 py-3 px-3 bg-blue-600 text-white rounded-2xl text-xs font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-md shadow-blue-500/20"
                             >
                               <Send size={14} /> Pay via GPay
                             </button>
                             <button
                               onClick={() => handleCopyUPI(payeeUpi, index)}
-                              className="flex items-center justify-center gap-2 py-3 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
+                              className="flex items-center justify-center gap-2 py-3 px-3 bg-white/80 border border-slate-200/80 text-slate-700 rounded-2xl text-xs font-bold hover:bg-white active:scale-[0.98] transition-all shadow-2xs"
                             >
                               <Copy size={14} /> {copiedIndex === index ? 'Copied!' : 'Copy UPI ID'}
                             </button>
@@ -414,10 +445,10 @@ export default function BalancesTab({
 
                       {/* Receive Options (Receiver) */}
                       {iAmTo && (
-                        <div className="mt-2">
+                        <div>
                           <button
                             onClick={() => setConfirmSettlement(settlement)}
-                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 active:scale-[0.98] transition-all shadow-sm shadow-emerald-200"
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-md shadow-emerald-500/25"
                           >
                             <CheckCheck size={16} strokeWidth={2.5} /> Confirm Payment Received
                           </button>
@@ -425,7 +456,7 @@ export default function BalancesTab({
                       )}
 
                       {!isMySettlement && (
-                        <div className="text-center text-xs text-slate-400 py-2">
+                        <div className="text-center text-xs text-slate-400 py-1.5">
                           You are not involved in this specific settlement.
                         </div>
                       )}
@@ -438,80 +469,86 @@ export default function BalancesTab({
         )}
       </div>
 
-      {/* QUICK PAY & RECORD MODULE */}
-      <div className="mt-8 pt-6 border-t border-slate-200">
-        <h3 className="text-sm font-bold text-slate-800 mb-3 px-1 flex items-center gap-1.5">
-          <PlusCircle size={16} className="text-indigo-600" /> Quick Pay
+      {/* QUICK PAY & RECORD MODULE (Liquid Glass Container) */}
+      <div className="rounded-[28px] bg-white/80 backdrop-blur-2xl p-5 border border-white/70 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <PlusCircle size={15} className="text-blue-600" /> Quick Pay & Settle
         </h3>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-          
-          <div className="flex gap-2 items-center">
-            {/* Payee Selection Dropdown */}
-            <div className="relative flex-1">
-              <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <select 
-                value={customPayee} 
-                onChange={(e) => setCustomPayee(e.target.value)}
-                className="w-full h-11 pl-10 pr-3 text-xs font-semibold border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:border-indigo-400 transition-colors"
-              >
-                <option value="" className="font-normal">Select payee...</option>
-                {group.members.filter(m => m !== currentUser.id).map(memberId => (
-                  <option key={memberId} value={memberId}>{getUserName(memberId)}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Custom Amount Raw Input with Currency Prefix */}
-            <div className="relative w-36 flex-shrink-0">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-              <input 
-                type="number" 
-                placeholder="0.00" 
-                min="1"
-                step="0.01"
-                value={customAmount} 
-                onChange={(e) => setCustomAmount(e.target.value)} 
-                className="w-full h-11 pl-7 pr-3 text-sm font-mono font-bold border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none focus:border-indigo-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
+        
+        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+          {/* Payee Selection Dropdown */}
+          <div className="relative flex-1">
+            <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <select 
+              value={customPayee} 
+              onChange={(e) => setCustomPayee(e.target.value)}
+              className="w-full h-11 pl-10 pr-3 text-xs font-semibold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs"
+            >
+              <option value="" className="font-normal">Select payee roommate...</option>
+              {group.members.filter(m => m !== currentUser.id).map(memberId => (
+                <option key={memberId} value={memberId}>{getUserName(memberId)}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Action Buttons with Icons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button 
-              type="button"
-              onClick={() => handleCustomPayment(false)}
-              className="h-10 text-xs font-bold rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <Send size={13} className="text-indigo-600" />
-              <span>Pay via GPay</span>
-            </button>
-            <button 
-              type="button"
-              onClick={() => handleCustomPayment(true)}
-              disabled={loading}
-              className="h-10 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
-            >
-              <CheckCircle2 size={13} className="text-emerald-400" />
-              <span>{loading ? 'Saving...' : 'Record Entry'}</span>
-            </button>
+          {/* Amount Input */}
+          <div className="relative w-full sm:w-40 flex-shrink-0">
+            <IndianRupee size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 stroke-[2.5]" />
+            <input 
+              type="number" 
+              placeholder="0.00" 
+              min="1"
+              step="0.01"
+              value={customAmount} 
+              onChange={(e) => setCustomAmount(e.target.value)} 
+              className="w-full h-11 pl-9 pr-3 text-sm font-mono font-bold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
           </div>
+        </div>
+
+        {/* Action Buttons with Icons */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button 
+            type="button"
+            onClick={() => handleCustomPayment(false)}
+            className="h-11 text-xs font-bold rounded-2xl border border-blue-200/80 text-blue-700 bg-blue-50/70 hover:bg-blue-100 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+          >
+            <Send size={13} className="text-blue-600" />
+            <span>Pay via GPay</span>
+          </button>
+          <button 
+            type="button"
+            onClick={() => handleCustomPayment(true)}
+            disabled={loading}
+            className="h-11 text-xs font-bold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            <CheckCircle2 size={14} className="text-white" />
+            <span>{loading ? 'Saving...' : 'Record Payment'}</span>
+          </button>
         </div>
       </div>
 
-      {/* MODAL: Breakdown Receipt */}
+      {/* MODAL: Breakdown Receipt (Liquid Glass Modal, No slider) */}
       {breakdownData && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[24px] w-full max-w-sm max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-sm rounded-[32px] p-6 bg-white/85 backdrop-blur-2xl border border-white/60 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200">
             
-            <div className="p-5 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-900">Expense Breakdown</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Why <strong className="text-slate-700">{breakdownData.fromName}</strong> needs to pay <strong className="text-slate-700">{breakdownData.toName}</strong> <strong className="font-mono text-slate-800">₹{breakdownData.amount.toFixed(2)}</strong>
-              </p>
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/50 mb-3.5">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Expense Breakdown</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {breakdownData.fromName} owes {breakdownData.toName}
+                </p>
+              </div>
+              <button 
+                onClick={() => setBreakdownData(null)}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 bg-white/60 hover:bg-white/90 border border-slate-200/50 rounded-full shadow-xs transition-colors"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {getBreakdownForPair(breakdownData.from, breakdownData.to).map(exp => {
                 const isFromPaid = exp.paidBy === breakdownData.from;
                 const payerName = isFromPaid ? breakdownData.fromName : breakdownData.toName;
@@ -519,12 +556,12 @@ export default function BalancesTab({
                 const shareAmt = isFromPaid ? exp.splits[breakdownData.to] : exp.splits[breakdownData.from];
 
                 return (
-                  <div key={exp.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-xs">
-                    <div className="flex justify-between items-start mb-1.5">
-                      <span className="text-sm font-bold text-slate-800">{exp.title}</span>
-                      <span className="text-xs font-mono font-bold text-slate-600">₹{parseFloat(shareAmt).toFixed(2)}</span>
+                  <div key={exp.id} className="p-3 bg-white/70 backdrop-blur-md border border-white/80 rounded-2xl shadow-2xs">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-xs font-bold text-slate-800">{exp.title}</span>
+                      <span className="text-xs font-mono font-bold text-blue-600">₹{parseFloat(shareAmt).toFixed(2)}</span>
                     </div>
-                    <div className="text-[11px] text-slate-500 flex justify-between items-center">
+                    <div className="text-[10px] text-slate-400 flex justify-between items-center">
                       <span>{payerName} paid ₹{parseFloat(exp.totalAmount).toFixed(2)}</span>
                       <span>({borrowerName}'s share)</span>
                     </div>
@@ -533,37 +570,49 @@ export default function BalancesTab({
               })}
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-white">
-              <Button onClick={() => setBreakdownData(null)} variant="secondary" className="w-full py-3 text-xs rounded-xl">
-                Close Breakdown
+            <Button 
+              onClick={() => setBreakdownData(null)} 
+              variant="secondary" 
+              className="w-full py-2.5 text-xs font-bold rounded-xl bg-white/70 hover:bg-white border border-slate-200/60 text-slate-700 shadow-xs"
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Confirm Payment Received (Liquid Glass Modal) */}
+      {confirmSettlement && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative overflow-hidden w-full max-w-xs rounded-[32px] p-6 bg-white/85 backdrop-blur-2xl border border-white/60 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-3.5 shadow-inner">
+              <CheckCircle2 size={28} />
+            </div>
+            <h3 className="text-base font-extrabold text-slate-900 mb-1">Confirm Receipt</h3>
+            <p className="text-slate-500 text-xs mb-5 leading-relaxed">
+              Verify you received <strong className="text-slate-900 font-mono text-sm">₹{confirmSettlement.amount.toFixed(2)}</strong> from <strong className="text-slate-800">{getUserName(confirmSettlement.from)}</strong>.
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Button 
+                variant="secondary" 
+                onClick={() => setConfirmSettlement(null)} 
+                disabled={loading} 
+                className="py-2.5 text-xs font-bold rounded-xl bg-white/70 hover:bg-white border border-slate-200/60"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmReceived} 
+                disabled={loading} 
+                className="py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20"
+              >
+                {loading ? 'Confirming...' : 'Yes, Received'}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL: Confirm Payment Received */}
-      {confirmSettlement && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[24px] max-w-xs w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 text-center">
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100/50">
-              <CheckCircle2 size={28} />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Confirm Receipt</h3>
-            <p className="text-slate-500 text-sm mb-5 leading-relaxed">
-              Verify you received <strong className="text-slate-900 font-mono text-base">₹{confirmSettlement.amount.toFixed(2)}</strong> from <strong className="text-slate-800">{getUserName(confirmSettlement.from)}</strong>.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="secondary" onClick={() => setConfirmSettlement(null)} disabled={loading} className="py-2.5 text-xs rounded-xl">
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmReceived} disabled={loading} className="py-2.5 text-xs rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm">
-                {loading ? 'Confirming...' : 'Yes, I got it'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
