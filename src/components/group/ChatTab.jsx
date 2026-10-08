@@ -1,5 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Download, ImagePlus, MessageCircle, Paperclip, Send, Smile, Sticker, X } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Download, 
+  ImagePlus, 
+  MessageCircle, 
+  Paperclip, 
+  Send, 
+  Smile, 
+  Sticker, 
+  X,
+  Sparkles,
+  FileText
+} from 'lucide-react';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -73,7 +85,6 @@ export default function ChatTab({ group, currentUser, users }) {
     setInput('');
 
     try {
-      // 1. Save to Firebase Firestore
       await addDoc(collection(db, 'messages'), {
         groupId: group.id,
         senderId: currentUser.id,
@@ -83,7 +94,6 @@ export default function ChatTab({ group, currentUser, users }) {
         createdAt: serverTimestamp()
       });
 
-      // 2. Trigger Notification right here after successful send
       if (Notification.permission === 'granted') {
         new Notification(`New message in ${group.name}`, {
           body: `${currentUser.username}: ${cleanText}`,
@@ -213,23 +223,32 @@ export default function ChatTab({ group, currentUser, users }) {
     const attachmentData = message.attachmentData || message.mediaData;
     const attachmentType = message.attachmentType || message.type;
     const downloadName = message.attachmentName || 'chat-attachment';
+    const isMe = message.senderId === currentUser.id;
+
     const downloadLink = (
       <a
         href={attachmentData}
         download={downloadName}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline"
+        className={`inline-flex items-center gap-1.5 text-xs font-bold transition-opacity hover:opacity-80 ${
+          isMe ? 'text-white/90 underline' : 'text-blue-600 hover:underline'
+        }`}
       >
-        <Download size={14} /> Download
+        <Download size={13} /> Download
       </a>
     );
 
     if (attachmentType === 'image' || attachmentType === 'gif') {
       return (
         <div className="space-y-2">
-          <button type="button" onClick={() => setSelectedImage({ ...message, attachmentData })} className="block max-w-full" title="Open image full screen">
-            <img src={attachmentData} alt={downloadName} className="max-h-64 max-w-full rounded-xl object-contain" loading="lazy" />
+          <button 
+            type="button" 
+            onClick={() => setSelectedImage({ ...message, attachmentData })} 
+            className="block max-w-full overflow-hidden rounded-2xl border border-white/20 shadow-sm transition-transform active:scale-98" 
+            title="Open image full screen"
+          >
+            <img src={attachmentData} alt={downloadName} className="max-h-64 max-w-full rounded-2xl object-cover" loading="lazy" />
           </button>
-          {downloadLink}
+          <div className="flex justify-end">{downloadLink}</div>
         </div>
       );
     }
@@ -238,8 +257,10 @@ export default function ChatTab({ group, currentUser, users }) {
       return (
         <div className="space-y-2" style={{ width: 'min(65vw, 24rem)', maxWidth: '100%' }}>
           <VideoPlayer src={attachmentData} mimeType={message.attachmentMimeType} />
-          <p className="max-w-full truncate text-xs" title={downloadName}>{downloadName}</p>
-          {downloadLink}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="max-w-full truncate text-[11px] opacity-80" title={downloadName}>{downloadName}</p>
+            {downloadLink}
+          </div>
         </div>
       );
     }
@@ -247,18 +268,28 @@ export default function ChatTab({ group, currentUser, users }) {
     if (attachmentType === 'audio') {
       return (
         <div className="w-full min-w-52 space-y-2">
-          <audio src={attachmentData} controls preload="metadata" className="w-full" />
-          <p className="max-w-52 truncate text-xs">{downloadName}</p>
-          {downloadLink}
+          <audio src={attachmentData} controls preload="metadata" className="w-full accent-blue-600" />
+          <div className="flex items-center justify-between text-[11px] pt-1">
+            <p className="max-w-40 truncate opacity-80">{downloadName}</p>
+            {downloadLink}
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="flex max-w-56 items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-slate-900 shadow-sm">
-        <Paperclip size={18} className="flex-shrink-0 text-indigo-600" />
+      <div className={`flex max-w-56 items-center gap-3 rounded-2xl p-3 shadow-xs border ${
+        isMe 
+          ? 'bg-white/15 border-white/20 text-white' 
+          : 'bg-white border-slate-200/80 text-slate-800'
+      }`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isMe ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'
+        }`}>
+          <FileText size={18} />
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold text-slate-900" title={downloadName}>{downloadName}</p>
+          <p className="truncate text-xs font-bold" title={downloadName}>{downloadName}</p>
           <div className="mt-1">{downloadLink}</div>
         </div>
       </div>
@@ -266,17 +297,22 @@ export default function ChatTab({ group, currentUser, users }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-100/70">
+    <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden bg-gradient-to-b from-slate-50 via-white/80 to-slate-50">
+      
+      {/* Background ambient lighting */}
+      <div className="absolute top-10 right-10 w-80 h-80 bg-blue-300/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 left-10 w-80 h-80 bg-indigo-300/10 rounded-full blur-3xl pointer-events-none" />
+
       {/* Scrollable Message List */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3.5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-4 relative z-10 scrollbar-hide">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 mb-3 shadow-inner">
-              <MessageCircle size={28} />
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-50 to-indigo-100/70 border border-blue-200/60 text-blue-600 flex items-center justify-center mb-3 shadow-inner">
+              <MessageCircle size={30} />
             </div>
-            <p className="font-semibold text-slate-700 text-sm">No messages yet</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
-              Chat, drop grocery lists, or discuss shared room expenses here!
+            <p className="font-extrabold text-slate-900 text-base">No messages yet</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-[240px] leading-relaxed">
+              Chat, drop grocery lists, receipts, or discuss room expenses in this space!
             </p>
           </div>
         ) : (
@@ -284,14 +320,15 @@ export default function ChatTab({ group, currentUser, users }) {
             const isMe = msg.senderId === currentUser.id;
             const sender = getUser(msg.senderId);
             const timeString = formatTime(msg);
+            
             const avatar = sender.photoDataUrl ? (
               <img
                 src={sender.photoDataUrl}
                 alt={`${sender.username || 'Roommate'} profile`}
-                className="mb-1 h-7 w-7 flex-shrink-0 rounded-full object-cover"
+                className="mb-1 h-7 w-7 flex-shrink-0 rounded-full object-cover shadow-2xs border border-white"
               />
             ) : (
-              <div className="mb-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-600">
+              <div className="mb-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-blue-50 to-indigo-100 border border-blue-200/50 text-[11px] font-black text-blue-700 shadow-2xs">
                 {(sender.username || 'R').charAt(0).toUpperCase()}
               </div>
             );
@@ -299,19 +336,19 @@ export default function ChatTab({ group, currentUser, users }) {
             return (
               <div
                 key={msg.id}
-                className={`flex gap-2 ${isMe ? 'justify-end' : 'justify-start'} items-end`}
+                className={`flex gap-2 ${isMe ? 'justify-end' : 'justify-start'} items-end group`}
               >
                 {!isMe && avatar}
 
                 <div
-                  className={`max-w-[78%] px-3.5 py-2 rounded-2xl text-[14px] leading-relaxed shadow-sm break-words relative ${
+                  className={`max-w-[82%] sm:max-w-[70%] px-4 py-2.5 rounded-[22px] text-[13.5px] leading-relaxed break-words relative transition-all ${
                     isMe
-                      ? 'bg-indigo-600 text-white rounded-br-xs'
-                      : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
+                      ? 'bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 text-white rounded-br-sm shadow-md shadow-blue-500/20'
+                      : 'bg-white/90 backdrop-blur-md text-slate-800 border border-white/80 rounded-bl-sm shadow-[0_4px_16px_rgba(15,23,42,0.04)]'
                   }`}
                 >
                   {!isMe && (
-                    <div className="text-[10px] font-bold text-indigo-600 tracking-wide mb-0.5">
+                    <div className="text-[10px] font-black text-blue-600 tracking-wider uppercase mb-0.5">
                       {msg.senderName || sender.username}
                     </div>
                   )}
@@ -319,10 +356,12 @@ export default function ChatTab({ group, currentUser, users }) {
                   {msg.attachmentData || msg.mediaData
                     ? renderAttachment(msg)
                     : msg.type === 'sticker'
-                      ? <p className="text-6xl leading-none" aria-label="Sticker">{msg.text}</p>
-                      : <p className="whitespace-pre-wrap">{msg.text}</p>}
+                      ? <p className="text-6xl py-1 leading-none" aria-label="Sticker">{msg.text}</p>
+                      : <p className="whitespace-pre-wrap font-normal">{msg.text}</p>}
 
-                  <div className={`text-[9px] text-right mt-1 font-medium ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                  <div className={`text-[9.5px] text-right mt-1 font-semibold tracking-tight ${
+                    isMe ? 'text-blue-100/90' : 'text-slate-400'
+                  }`}>
                     {timeString}
                   </div>
                 </div>
@@ -333,26 +372,37 @@ export default function ChatTab({ group, currentUser, users }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Floating Modern Message Input Bar */}
-      <div className="flex-shrink-0 border-t border-slate-200/80 bg-white px-3 py-3 sm:px-4">
-        {attachmentError && <p role="alert" className="px-2 pb-2 text-xs text-rose-600">{attachmentError}</p>}
+      {/* Floating Liquid Glass Input Bar (Elevated) */}
+      <div className="relative z-20 px-3 pb-6 sm:px-6 pt-2">
+        {attachmentError && (
+          <div className="max-w-3xl mx-auto mb-2 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold border border-rose-200/80 animate-in fade-in duration-150">
+            {attachmentError}
+          </div>
+        )}
+
+        {/* Emoji / Sticker Tray (Liquid Glass popover) */}
         {picker && (
-          <div className="mb-2 border border-slate-200 bg-slate-50 rounded-xl p-2.5">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold text-slate-600">
-                {picker === 'emoji' ? 'Emoji' : 'Stickers'}
+          <div className="max-w-3xl mx-auto mb-3 rounded-3xl bg-white/90 backdrop-blur-2xl border border-white/70 p-3 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-2 pb-2 mb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                {picker === 'emoji' ? 'Choose Emoji' : 'Pick Sticker'}
               </span>
-              <button type="button" onClick={() => setPicker(null)} className="p-1 text-slate-400 hover:text-slate-700" aria-label="Close picker">
-                <X size={15} />
+              <button 
+                type="button" 
+                onClick={() => setPicker(null)} 
+                className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 bg-slate-100 transition-colors" 
+                aria-label="Close picker"
+              >
+                <X size={14} />
               </button>
             </div>
-            <div className="grid grid-cols-8 gap-1 max-h-36 overflow-y-auto">
+            <div className="grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto scrollbar-hide p-1">
               {(picker === 'emoji' ? EMOJIS : STICKERS).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => (picker === 'emoji' ? appendEmoji(item) : void handleSendSticker(item))}
-                  className={`${picker === 'emoji' ? 'text-2xl' : 'text-3xl'} aspect-square rounded-lg hover:bg-white active:scale-95`}
+                  className={`${picker === 'emoji' ? 'text-2xl' : 'text-3xl'} aspect-square rounded-2xl hover:bg-blue-50 active:scale-90 transition-all flex items-center justify-center`}
                   aria-label={picker === 'emoji' ? `Insert ${item}` : `Send sticker ${item}`}
                 >
                   {item}
@@ -361,7 +411,12 @@ export default function ChatTab({ group, currentUser, users }) {
             </div>
           </div>
         )}
-        <form onSubmit={handleSend} className="flex min-w-0 items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/80 p-1.5 shadow-sm sm:gap-2">
+
+        {/* Floating Input Capsule */}
+        <form 
+          onSubmit={handleSend} 
+          className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/85 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.1)] transition-all focus-within:ring-2 focus-within:ring-blue-500/20"
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -369,54 +424,73 @@ export default function ChatTab({ group, currentUser, users }) {
             onChange={handleFileUpload}
             className="hidden"
           />
+
+          {/* Media Attachment Action */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white hover:text-indigo-600 disabled:opacity-40"
-            title="Upload image, document, video, or audio"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-blue-600 hover:bg-blue-50 active:scale-95 transition-all disabled:opacity-40"
+            title="Upload photo, doc or media"
             aria-label="Upload attachment"
           >
-            {uploading ? <span className="text-[10px]">...</span> : <ImagePlus size={18} />}
+            {uploading ? (
+              <span className="text-[10px] font-bold text-blue-600 animate-pulse">...</span>
+            ) : (
+              <ImagePlus size={19} />
+            )}
           </button>
+
+          {/* Emoji Toggle */}
           <button
             type="button"
             onClick={() => setPicker((current) => (current === 'emoji' ? null : 'emoji'))}
-            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white ${picker === 'emoji' ? 'text-indigo-600' : 'text-slate-500'}`}
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all active:scale-95 ${
+              picker === 'emoji' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
             title="Insert emoji"
             aria-label="Open emoji picker"
           >
-            <Smile size={18} />
+            <Smile size={19} />
           </button>
+
+          {/* Sticker Toggle */}
           <button
             type="button"
             onClick={() => setPicker((current) => (current === 'sticker' ? null : 'sticker'))}
-            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-white ${picker === 'sticker' ? 'text-indigo-600' : 'text-slate-500'}`}
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all active:scale-95 ${
+              picker === 'sticker' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
             title="Send sticker"
             aria-label="Open sticker picker"
           >
-            <Sticker size={18} />
+            <Sticker size={19} />
           </button>
+
+          {/* Text Input */}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 sm:px-3"
+            placeholder="Type a message or bill note..."
+            className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 font-medium"
           />
+
+          {/* Send Button */}
           <button
             type="submit"
             disabled={!input.trim()}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95 disabled:opacity-40"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-500/25 transition-all hover:bg-blue-700 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
             aria-label="Send message"
           >
-            <Send size={16} />
+            <Send size={16} className="-mr-0.5" />
           </button>
         </form>
       </div>
 
+      {/* Full-Screen Image Preview Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
           aria-label="Full-screen image preview"
@@ -425,33 +499,35 @@ export default function ChatTab({ group, currentUser, users }) {
           <button
             type="button"
             onClick={() => setSelectedImage(null)}
-            className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/20"
+            className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition-all"
             aria-label="Back to chat"
           >
-            <ArrowLeft size={19} />
-            <span>Back to chat</span>
+            <ArrowLeft size={16} />
+            <span>Back</span>
           </button>
           <button
             type="button"
             onClick={() => setSelectedImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+            className="absolute right-4 top-4 rounded-full bg-white/10 backdrop-blur-md p-2.5 text-white hover:bg-white/20 transition-all"
             aria-label="Close image"
           >
-            <X size={22} />
+            <X size={18} />
           </button>
+          
           <img
             src={selectedImage.attachmentData}
             alt={selectedImage.attachmentName || 'Chat image'}
-            className="max-h-full max-w-full object-contain"
+            className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           />
+          
           <a
             href={selectedImage.attachmentData}
             download={selectedImage.attachmentName || 'chat-image'}
             onClick={(event) => event.stopPropagation()}
-            className="absolute bottom-5 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900"
+            className="absolute bottom-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-xs font-bold text-slate-900 shadow-xl transition-transform hover:scale-105"
           >
-            <Download size={16} /> Download image
+            <Download size={15} /> Download original
           </a>
         </div>
       )}
@@ -497,7 +573,7 @@ function VideoPlayer({ src, mimeType }) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-slate-900/10 bg-black shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-white/20 bg-black shadow-sm">
         {playbackUrl ? (
           <video
             src={playbackUrl}
@@ -516,8 +592,8 @@ function VideoPlayer({ src, mimeType }) {
         )}
       </div>
       {hasPlaybackError && (
-        <p role="status" className="text-xs text-amber-600">
-          This video format could not be played here. Download it to open in another player.
+        <p role="status" className="text-xs text-amber-500 font-semibold pt-1">
+          Video format not supported. Download to view.
         </p>
       )}
     </>

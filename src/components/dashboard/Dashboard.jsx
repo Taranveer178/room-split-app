@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Plus, UserPlus, Users, Download, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { LogOut, Plus, UserPlus, Users, Download, ChevronRight, LayoutDashboard, Archive, ArchiveRestore, Pin, PinOff } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
-import { Card } from '../common/UI';
 import PrimaryNav from '../common/PrimaryNav';
 import { requestNotificationPermission } from '../../utils/notifications';
 import ActivityTab from './ActivityTab';
@@ -12,12 +11,33 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showArchivedGroups, setShowArchivedGroups] = useState(false);
+  const pinnedGroupIds = user?.pinnedGroupIds || [];
+  const archivedGroupIds = user?.archivedGroupIds || [];
   
   // Animation state for smooth tab transitions
   const [isAnimating, setIsAnimating] = useState(false);
 
   const myGroups = groups.filter((group) => group.members && group.members.includes(user.id));
+  const activeGroups = myGroups
+    .filter((group) => !archivedGroupIds.includes(group.id))
+    .sort((first, second) => Number(pinnedGroupIds.includes(second.id)) - Number(pinnedGroupIds.includes(first.id)));
+  const archivedGroups = myGroups.filter((group) => archivedGroupIds.includes(group.id));
+  const visibleGroups = showArchivedGroups ? archivedGroups : activeGroups;
   const unreadNotifications = notifications.filter((notification) => !notification.read);
+
+  const updateGroupPreference = async (groupId, preference, enabled) => {
+    const currentIds = user?.[preference] || [];
+    const nextIds = enabled
+      ? [...new Set([...currentIds, groupId])]
+      : currentIds.filter((id) => id !== groupId);
+
+    try {
+      await onUpdateUser(user.id, { [preference]: nextIds });
+    } catch {
+      showToast?.('Could not update this group. Please try again.', 'error');
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'notifications' && unreadNotifications.length) {
@@ -90,14 +110,14 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       </header>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="relative z-10 min-w-0 flex-1 overscroll-y-contain overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom))] scrollbar-hide md:order-2 md:pb-0">
-        <div className={`transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'} h-full`}>
+      <main className="relative z-10 min-w-0 flex-1 overscroll-y-contain overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom))] scrollbar-hide md:order-2 md:pb-0">
+        <div className={`min-h-full transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
           
           {/* ============================== */}
           {/* TAB 1: GROUPS (Dashboard Home) */}
           {/* ============================== */}
           {activeTab === 'groups' && (
-            <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8 lg:p-12">
+            <div className="mx-auto max-w-6xl p-4 pb-8 sm:p-6 sm:pb-8 md:p-8 md:pb-8 lg:p-12 lg:pb-12">
               
               {/* Install Banner */}
               {showInstallBanner && (
@@ -183,22 +203,35 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-                    <LayoutDashboard size={20} className="sm:w-6 sm:h-6 text-blue-600" /> Your Spaces
+                    <LayoutDashboard size={20} className="sm:w-6 sm:h-6 text-blue-600" /> {showArchivedGroups ? 'Archived Spaces' : 'Your Spaces'}
                   </h2>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowArchivedGroups((showing) => !showing)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-colors hover:border-blue-200 hover:text-blue-700"
+                  aria-pressed={showArchivedGroups}
+                >
+                  {showArchivedGroups ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+                  {showArchivedGroups ? 'Active spaces' : `Archived${archivedGroups.length ? ` (${archivedGroups.length})` : ''}`}
+                </button>
               </div>
               
-              {myGroups.length === 0 ? (
+              {visibleGroups.length === 0 ? (
                 <div className="rounded-[1.5rem] sm:rounded-[2rem] border border-dashed border-slate-300 bg-white/50 px-6 py-12 sm:py-16 text-center">
                   <div className="mx-auto mb-4 sm:mb-5 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 text-slate-400">
-                    <Users size={32} className="sm:w-9 sm:h-9" />
+                    {showArchivedGroups ? <Archive size={32} className="sm:w-9 sm:h-9" /> : <Users size={32} className="sm:w-9 sm:h-9" />}
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-slate-700 mb-1.5 sm:mb-2">You aren’t in any groups yet.</p>
-                  <p className="text-sm sm:text-base text-slate-500 max-w-sm mx-auto">Create a group or join one using an invite code to get started.</p>
+                  <p className="text-lg sm:text-xl font-bold text-slate-700 mb-1.5 sm:mb-2">
+                    {showArchivedGroups ? 'No archived spaces.' : myGroups.length ? 'All your spaces are archived.' : 'You aren’t in any groups yet.'}
+                  </p>
+                  <p className="text-sm sm:text-base text-slate-500 max-w-sm mx-auto">
+                    {showArchivedGroups ? 'Spaces you archive will appear here.' : myGroups.length ? 'Open Archived to restore a space.' : 'Create a group or join one using an invite code to get started.'}
+                  </p>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                  {myGroups.map((group) => (
+                  {visibleGroups.map((group) => (
                     <div 
                       key={group.id} 
                       onClick={() => onOpenGroup(group.id)} 
@@ -214,8 +247,34 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
                             <p className="text-slate-500 text-xs sm:text-sm mt-0.5 sm:mt-1">{group.members.length} Members</p>
                           </div>
                         </div>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                          <ChevronRight size={18} className="sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              updateGroupPreference(group.id, 'pinnedGroupIds', !pinnedGroupIds.includes(group.id));
+                            }}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${pinnedGroupIds.includes(group.id) ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-700'}`}
+                            aria-label={pinnedGroupIds.includes(group.id) ? `Unpin ${group.name}` : `Pin ${group.name}`}
+                            title={pinnedGroupIds.includes(group.id) ? 'Unpin space' : 'Pin space'}
+                          >
+                            {pinnedGroupIds.includes(group.id) ? <PinOff size={17} /> : <Pin size={17} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              updateGroupPreference(group.id, 'archivedGroupIds', !archivedGroupIds.includes(group.id));
+                            }}
+                            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                            aria-label={archivedGroupIds.includes(group.id) ? `Restore ${group.name}` : `Archive ${group.name}`}
+                            title={archivedGroupIds.includes(group.id) ? 'Restore space' : 'Archive space'}
+                          >
+                            {archivedGroupIds.includes(group.id) ? <ArchiveRestore size={17} /> : <Archive size={17} />}
+                          </button>
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                            <ChevronRight size={18} className="sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                          </div>
                         </div>
                       </div>
                     </div>
