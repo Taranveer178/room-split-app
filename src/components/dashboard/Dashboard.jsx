@@ -63,14 +63,14 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
   };
 
   return (
-    <div className="flex h-screen min-h-screen flex-col relative overflow-hidden bg-slate-50 font-sans md:flex-row">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
       
       {/* --- SUBTLE BACKGROUND EFFECTS --- */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-[pulse_8s_ease-in-out_infinite] pointer-events-none z-0"></div>
       <div className="absolute bottom-[20%] right-[-10%] w-[400px] h-[400px] bg-cyan-200/30 rounded-full mix-blend-multiply filter blur-[120px] opacity-70 pointer-events-none z-0"></div>
 
       {/* --- MOBILE STICKY HEADER --- */}
-      <header className="relative z-30 flex items-center justify-between px-5 py-4 bg-white/80 backdrop-blur-lg border-b border-slate-200 md:hidden shadow-sm">
+      <header className="relative z-30 flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-5 py-4 shadow-sm backdrop-blur-lg md:hidden">
         <div className="flex items-center gap-3">
           <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-100">
             <img src={roomsplitIcon} alt="RoomSplit" className="w-7 h-7 object-contain" />
@@ -90,7 +90,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       </header>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 min-w-0 overflow-y-auto pb-32 relative z-10 md:order-2 md:pb-0 scrollbar-hide">
+      <main className="relative z-10 min-w-0 flex-1 overscroll-y-contain overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom))] scrollbar-hide md:order-2 md:pb-0">
         <div className={`transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'} h-full`}>
           
           {/* ============================== */}

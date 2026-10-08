@@ -13,9 +13,9 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden md:flex-row">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 md:flex-row">
       {/* Sticky Top Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center gap-3 z-30 flex-shrink-0 shadow-sm md:hidden">
+      <header className="z-30 flex flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3.5 shadow-sm md:hidden">
         <button onClick={onBack} className="p-2 -ml-2 text-slate-600 rounded-full active:bg-slate-100">
           <ArrowLeft size={22} />
         </button>
@@ -26,7 +26,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       </header>
 
       {/* Main Tab Area with dynamic layout fix for chat input */}
-      <main className={`flex-1 min-w-0 min-h-0 relative md:order-3 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-16' : 'overflow-y-auto pb-28 md:pb-0'}`}>
+      <main className={`relative min-w-0 min-h-0 flex-1 overscroll-y-contain md:order-3 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-0'}`}>
         {activeTab === 'expenses' && (
           <ExpensesTab 
             expenses={sortedExpenses} 

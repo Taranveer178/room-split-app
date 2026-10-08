@@ -115,7 +115,7 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
   const getInitials = () => (user?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="p-5 animate-in fade-in duration-200 pb-12 relative">
+    <div className={`relative p-5 pb-12 animate-in fade-in duration-200 ${isEditing ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-12' : ''}`}>
       <h1 className="text-2xl font-bold text-slate-900 mb-6">Your Profile</h1>
 
       {!isEditing ? (
