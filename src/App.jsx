@@ -300,7 +300,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col items-center justify-center bg-slate-50 lg:max-w-none">
+      <div className="w-full h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
         <div className="relative flex items-center justify-center mb-4">
           <img src={roomsplitIcon} alt="RoomSplit" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" />
         </div>
@@ -310,7 +310,7 @@ export default function App() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 sm:border-x border-slate-200 sm:shadow-[0_0_40px_rgba(0,0,0,0.1)] relative overflow-hidden font-sans lg:max-w-none lg:border-x-0 lg:shadow-none">
+    <div className="w-full h-[100dvh] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
       <Toast toast={toast} />
       {!activeUser ? (
         <AuthScreen users={users} onSaveUser={saveUser} onLogin={handleLogin} />
@@ -337,6 +337,7 @@ export default function App() {
       ) : currentView === 'group' && currentGroupId ? (
         <GroupView
           group={groups.find((group) => group.id === currentGroupId)}
+          groups={groups}
           expenses={expenses.filter((expense) => expense.groupId === currentGroupId)}
           onSaveExpense={saveExpense}
           onDeleteExpense={deleteExpense}

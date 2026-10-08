@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, ChevronRight,
   ArrowUpRight, ArrowDownLeft, PieChart, Receipt,
@@ -308,7 +309,7 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
         )}
       </div>
 
-      {selectedBreakdown && (
+      {selectedBreakdown && createPortal(
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setSelectedBreakdown(null)}
@@ -376,7 +377,8 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

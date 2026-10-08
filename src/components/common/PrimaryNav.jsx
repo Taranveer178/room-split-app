@@ -22,7 +22,7 @@ export default function PrimaryNav({
   desktopOnly = false,
 }) {
   return (
-    <nav className={`${desktopOnly ? 'hidden md:flex' : 'flex w-full px-1 md:flex'} z-40 md:static md:order-1 md:h-full md:w-16 md:flex-shrink-0 md:flex-col md:items-center md:rounded-none md:border-r md:border-t-0 md:bg-white md:px-2 md:py-5 md:pb-5 md:shadow-none lg:w-20 lg:px-3`}>
+    <nav className={`${desktopOnly ? 'hidden md:flex md:order-first' : 'flex w-full px-1 md:flex'} z-40 md:static md:h-full md:w-16 md:flex-shrink-0 md:flex-col md:items-center md:rounded-none md:border-r md:border-t-0 md:bg-white md:px-2 md:py-5 md:pb-5 md:shadow-none lg:w-20 lg:px-3`}>
       <div className="hidden items-center justify-center md:flex">
         <img
           src={roomsplitIcon}
