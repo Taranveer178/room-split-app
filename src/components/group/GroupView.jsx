@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Receipt, Settings, Wallet, MessageSquare, 
-  MoreVertical, X, ChevronRight, Layers
+  MoreVertical, X, ChevronRight, Layers, Copy, Check, Share2, QrCode
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 import PrimaryNav from '../common/PrimaryNav';
 import AddExpenseTab from './AddExpenseTab';
 import BalancesTab from './BalancesTab';
@@ -27,7 +29,10 @@ export default function GroupView({
 }) {
   const [activeTab, setActiveTab] = useState('expenses');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isInviteCopied, setIsInviteCopied] = useState(false);
   const drawerRef = useRef(null);
+  const inviteUrl = `${window.location.origin}/?join=${encodeURIComponent(group.inviteCode)}`;
 
   const getUserName = (userId) => users.find((user) => user.id === userId)?.username || 'Unknown';
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
@@ -44,6 +49,40 @@ export default function GroupView({
   const handleTabSelect = (tab) => {
     setActiveTab(tab);
     setIsDrawerOpen(false);
+  };
+
+  const copyInviteCode = async () => {
+    try {
+      await navigator.clipboard.writeText(group.inviteCode);
+      setIsInviteCopied(true);
+      showToast('Invite code copied!');
+      window.setTimeout(() => setIsInviteCopied(false), 2000);
+    } catch (error) {
+      console.error('Could not copy invite code:', error);
+      showToast('Could not copy invite code.', 'error');
+    }
+  };
+
+  const shareInviteLink = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Join ${group.name} on RoomSplit`,
+          text: `Join our shared group "${group.name}". Use code: ${group.inviteCode}`,
+          url: inviteUrl,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+        showToast('Invite link copied!');
+      } else {
+        throw new Error('Sharing is not available in this browser.');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Could not share invite link:', error);
+        showToast('Could not share the invite link.', 'error');
+      }
+    }
   };
 
   return (
@@ -229,10 +268,11 @@ export default function GroupView({
       {activeTab === 'expenses' && (
         <button 
           onClick={() => setActiveTab('add')} 
-          className="fixed bottom-6 right-6 flex h-13 w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)] transition-all duration-200 active:scale-90 hover:scale-105 z-30"
+          aria-label="Add expense"
+          className="fixed bottom-6 right-6 z-30 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)] transition-all duration-200 active:scale-90 hover:scale-105"
           title="Add Expense"
         >
-          <Plus size={26} strokeWidth={2.8} />
+          <Plus size={24} strokeWidth={2.5} />
         </button>
       )}
       </div>
@@ -285,9 +325,35 @@ export default function GroupView({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 block">Invite Code</span>
                   <span className="font-mono text-lg font-black tracking-widest text-slate-900">{group.inviteCode}</span>
                 </div>
-                <span className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-xl border border-blue-100 shadow-2xs">
-                  {group.members.length} Members
-                </span>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span className="text-[10px] font-semibold text-slate-500">{group.members.length} Members</span>
+                  <button
+                    type="button"
+                    onClick={copyInviteCode}
+                    className="inline-flex items-center gap-1 rounded-lg border border-blue-200/70 bg-white px-2 py-1 text-[10px] font-bold text-blue-700 transition-colors hover:bg-blue-50"
+                  >
+                    {isInviteCopied ? <Check size={12} /> : <Copy size={12} />}
+                    {isInviteCopied ? 'Copied' : 'Copy code'}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={shareInviteLink}
+                  className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
+                >
+                  <Share2 size={14} />
+                  <span>Share link</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsQrOpen(true)}
+                  className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  <QrCode size={14} />
+                  <span>Show QR</span>
+                </button>
               </div>
 
               {/* Navigation Links inside Drawer */}
@@ -409,6 +475,42 @@ export default function GroupView({
         onNavigate={onNavigateDashboard}
         desktopOnly
       />
+
+      {isQrOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setIsQrOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="group-invite-qr-title"
+            className="relative w-full max-w-xs rounded-[30px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-150"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsQrOpen(false)}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200"
+              aria-label="Close QR code"
+            >
+              <X size={16} />
+            </button>
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+              <QrCode size={21} />
+            </div>
+            <h2 id="group-invite-qr-title" className="text-base font-extrabold text-slate-900">Scan to join {group.name}</h2>
+            <p className="mb-4 mt-1 text-xs text-slate-500">Scan this code to open the group invite.</p>
+            <div className="mb-4 inline-block rounded-2xl border border-slate-200 bg-white p-3 shadow-inner">
+              <QRCodeCanvas value={inviteUrl} size={188} level="H" includeMargin />
+            </div>
+            <p className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+              Invite code: <span className="font-mono font-bold tracking-wider text-slate-800">{group.inviteCode}</span>
+            </p>
+          </section>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

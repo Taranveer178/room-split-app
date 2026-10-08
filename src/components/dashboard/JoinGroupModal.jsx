@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Camera, KeyRound, ScanLine } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Camera, KeyRound, ScanLine, X } from 'lucide-react';
 import QrScanner from 'qr-scanner';
 import { Button } from '../common/UI';
 
@@ -95,16 +96,51 @@ export default function JoinGroupModal({ user, groups, onUpdateGroup, initialCod
           <input className="w-full px-4 py-3.5 text-center text-2xl font-mono tracking-widest border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-0 outline-none uppercase bg-slate-50" placeholder="XXXXXX" maxLength={10} value={code} onChange={(event) => setCode(event.target.value)} required />
           <Button type="submit" className="w-full mt-4 h-14" disabled={code.trim().length < 3 || isJoining}>{isJoining ? 'Joining…' : 'Join Group'}</Button>
           <button type="button" onClick={() => setIsScanning((scanning) => !scanning)} className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-            {isScanning ? <><Camera size={17} /> Stop scanning</> : <><ScanLine size={17} /> Scan QR code</>}
+            <><ScanLine size={17} /> Scan QR code</>
           </button>
-          {isScanning && (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
-              <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
-              <p className="px-3 py-2 text-xs text-slate-200">Point your camera at the group invite QR code.</p>
-            </div>
-          )}
         </form>
       </div>
+      {isScanning && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setIsScanning(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scan-group-invite-title"
+            className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-white/60 bg-white p-5 text-center shadow-2xl animate-in zoom-in-95 duration-150"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsScanning(false)}
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition-colors hover:bg-white hover:text-slate-800"
+              aria-label="Close QR scanner"
+            >
+              <X size={17} />
+            </button>
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Camera size={21} />
+            </div>
+            <h2 id="scan-group-invite-title" className="text-base font-extrabold text-slate-900">Scan a group QR code</h2>
+            <p className="mb-4 mt-1 text-xs text-slate-500">Place the QR code inside the frame to join.</p>
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950">
+              <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="relative h-[68%] w-[68%] rounded-2xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(15,23,42,0.22)]">
+                  <span className="absolute -left-0.5 -top-0.5 h-5 w-5 rounded-tl-lg border-l-4 border-t-4 border-indigo-400" />
+                  <span className="absolute -right-0.5 -top-0.5 h-5 w-5 rounded-tr-lg border-r-4 border-t-4 border-indigo-400" />
+                  <span className="absolute -bottom-0.5 -left-0.5 h-5 w-5 rounded-bl-lg border-b-4 border-l-4 border-indigo-400" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-br-lg border-b-4 border-r-4 border-indigo-400" />
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] font-medium text-slate-400">RoomSplit will recognize the invite automatically.</p>
+          </section>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
