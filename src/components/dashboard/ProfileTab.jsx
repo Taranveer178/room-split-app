@@ -1,5 +1,18 @@
 import { useState } from 'react';
-import { ImagePlus, Lock, Mail, Trash2, UserCircle } from 'lucide-react';
+import { 
+  ImagePlus, 
+  Lock, 
+  Mail, 
+  Trash2, 
+  UserCircle, 
+  CheckCircle2, 
+  AlertCircle, 
+  ShieldCheck, 
+  QrCode, 
+  KeyRound, 
+  Sparkles,
+  Camera
+} from 'lucide-react';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { Button, Card, Input } from '../common/UI';
@@ -115,144 +128,237 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
   const getInitials = () => (user?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className={`relative p-5 pb-12 animate-in fade-in duration-200 ${isEditing ? 'pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-12' : ''}`}>
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Your Profile</h1>
+    <div className={`relative w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-10 animate-in fade-in duration-300 ${isEditing ? 'pb-28 md:pb-10' : 'pb-16'}`}>
+      
+      {/* Decorative ambient gradients */}
+      <div className="absolute top-0 right-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-72 h-72 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Header Title */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/70 text-blue-700 text-xs font-bold mb-1.5">
+            <Sparkles size={12} />
+            <span>Account Details</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Your Profile</h1>
+        </div>
+      </div>
 
       {!isEditing ? (
-        <div className="flex flex-col items-center text-center bg-white p-8 rounded-3xl border border-slate-100 shadow-sm animate-in zoom-in-95 duration-200">
-          {photoDataUrl ? (
-            <img src={photoDataUrl} alt={`${user?.username || 'User'} profile`} className="w-24 h-24 rounded-full object-cover mb-4 shadow-inner" />
-          ) : (
-            <div className="w-24 h-24 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-4xl mb-4 shadow-inner">
-              {getInitials()}
+        /* ======================== VIEW PROFILE MODE ======================== */
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden transition-all duration-300">
+          {/* Top Banner with Theme Gradient */}
+          <div className="h-32 sm:h-40 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 relative px-6 flex items-end">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent opacity-60" />
+          </div>
+
+          <div className="px-6 pb-8 pt-0 sm:px-10">
+            {/* Avatar section positioned over banner */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-16 sm:-mt-20 mb-6 gap-4">
+              <div className="relative inline-block mx-auto sm:mx-0">
+                <div className="p-1.5 bg-white rounded-3xl shadow-xl border border-slate-100">
+                  {photoDataUrl ? (
+                    <img 
+                      src={photoDataUrl} 
+                      alt={`${user?.username || 'User'} profile`} 
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-inner" 
+                    />
+                  ) : (
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-4xl sm:text-5xl shadow-inner">
+                      {getInitials()}
+                    </div>
+                  )}
+                </div>
+                <div className="absolute bottom-2 right-2 p-1.5 bg-emerald-500 text-white rounded-full border-2 border-white shadow-sm" title="Active">
+                  <CheckCircle2 size={14} />
+                </div>
+              </div>
+
+              {/* Edit Trigger Button */}
+              <div className="w-full sm:w-auto">
+                <Button
+                  onClick={() => {
+                    setIsEditing(true);
+                    setLocalError('');
+                  }}
+                  className="w-full sm:w-auto h-11 px-6 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 rounded-xl transition-all hover:-translate-y-0.5"
+                >
+                  Edit Profile
+                </Button>
+              </div>
             </div>
-          )}
-          <h2 className="text-xl font-bold text-slate-900">{user?.username}</h2>
-          <div className="flex items-center gap-1.5 text-slate-500 text-sm mt-1 mb-4">
-            <Mail size={14} />
-            <span>{user?.email || 'No email set'}</span>
-          </div>
 
-          <div className="w-full max-w-xs flex items-center justify-between text-sm mb-3 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">UPI ID</span>
-            <span className="font-mono text-xs font-semibold text-slate-800 truncate max-w-[170px]">
-              {user?.upiId || 'Not set'}
-            </span>
-          </div>
-
-          <div className="w-full max-w-xs flex items-center justify-between text-sm text-slate-500 mb-6 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-            <div className="flex items-center gap-1.5">
-              <Lock size={14} className="text-slate-400" />
-              <span>Password</span>
+            {/* Profile Info Details */}
+            <div className="mb-6 text-center sm:text-left">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{user?.username}</h2>
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 text-slate-500 text-sm mt-1">
+                <Mail size={15} className="text-slate-400" />
+                <span>{user?.email || 'No email set'}</span>
+              </div>
             </div>
-            <span>••••••••</span>
-          </div>
 
-          <Button
-            onClick={() => {
-              setIsEditing(true);
-              setLocalError('');
-            }}
-            className="w-full max-w-xs h-12 text-sm"
-          >
-            Edit Profile
-          </Button>
+            {/* Structured Info Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {/* UPI Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-4 hover:border-blue-200 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+                  <QrCode size={22} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Settlement UPI ID</p>
+                  <p className="font-mono text-sm font-semibold text-slate-800 truncate mt-0.5">
+                    {user?.upiId || <span className="text-slate-400 font-sans italic text-xs">Not configured</span>}
+                  </p>
+                </div>
+              </div>
+
+              {/* Password Status Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-4 hover:border-blue-200 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0">
+                  <KeyRound size={22} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Password Security</p>
+                  <p className="text-sm font-semibold text-slate-800 tracking-widest mt-0.5">••••••••</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Notice Footer */}
+            <div className="mt-6 flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-100/60 text-slate-500 text-xs">
+              <ShieldCheck size={16} className="text-emerald-600 flex-shrink-0" />
+              <span>Your profile information is shared exclusively with verified members in your shared spaces.</span>
+            </div>
+          </div>
         </div>
       ) : (
-        <form onSubmit={handleUpdateProfile} className="space-y-4 animate-in slide-in-from-bottom-4 duration-200">
+        /* ======================== EDIT PROFILE MODE ======================== */
+        <form onSubmit={handleUpdateProfile} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
           {localError && (
-            <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm flex items-start gap-2.5 border border-red-100">
-              <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm flex items-start gap-3 border border-red-100 animate-in fade-in duration-200">
+              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
               <p className="font-medium leading-snug">{localError}</p>
             </div>
           )}
 
-          <Card className="p-4 bg-white space-y-4">
-            <div className="flex items-center gap-4">
-              {photoDataUrl ? (
-                <img src={photoDataUrl} alt="Profile preview" className="w-16 h-16 rounded-full object-cover" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold">
-                  {getInitials()}
+          {/* Photo Uploader Card */}
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-sm">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Profile Photo</h3>
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+              <div className="relative group">
+                <div className="p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                  {photoDataUrl ? (
+                    <img src={photoDataUrl} alt="Profile preview" className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover" />
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-3xl font-black">
+                      {getInitials()}
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-slate-50">
-                  <ImagePlus size={16} />
-                  {photoDataUrl ? 'Change photo' : 'Add photo'}
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" />
+              </div>
+
+              <div className="flex flex-col justify-center items-center sm:items-start space-y-2">
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm font-bold text-blue-700 cursor-pointer hover:bg-blue-100 transition-all active:scale-95">
+                    <Camera size={16} />
+                    <span>{photoDataUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" />
+                  </label>
+
+                  {photoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPhotoDataUrl('')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-sm font-bold transition-all active:scale-95"
+                      aria-label="Remove profile photo"
+                      title="Remove profile photo"
+                    >
+                      <Trash2 size={16} />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 text-center sm:text-left">
+                  Supports JPG, PNG up to 8MB. Auto-compressed for performance.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Fields Card */}
+          <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Basic Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <UserCircle size={16} className="text-blue-600" />
+                  <span>Display Name</span>
                 </label>
-                {photoDataUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setPhotoDataUrl('')}
-                    className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
-                    aria-label="Remove profile photo"
-                    title="Remove profile photo"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
+                <Input 
+                  value={name} 
+                  onChange={(event) => setName(event.target.value)} 
+                  placeholder="Your Name" 
+                  required 
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Mail size={16} className="text-blue-600" />
+                  <span>Email Address</span>
+                </label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="your@email.com"
+                />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <UserCircle size={16} className="text-slate-400" />
-                Display Name
-              </label>
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Your Name" required />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">UPI</span>
-                UPI ID (to receive settlements)
+            <div className="pt-2">
+              <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">UPI</span>
+                <span>UPI ID for Reimbursements</span>
               </label>
               <Input
                 value={upiId}
                 onChange={(event) => setUpiId(event.target.value)}
                 placeholder="e.g. username@okhdfcbank or 9876543210@paytm"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Roommates will settle directly to this UPI address on Google Pay/PhonePe.
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Roommates will settle debts directly to this handle using PhonePe, GPay, or Paytm.
               </p>
             </div>
+          </div>
 
+          {/* Password Security Card */}
+          <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Security Settings</h3>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Mail size={16} className="text-slate-400" />
-                Email Address
+              <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Lock size={16} className="text-blue-600" />
+                <span>New Password</span>
               </label>
               <Input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="your@email.com"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Leave blank to keep existing password"
+                minLength={6}
               />
+              <p className="text-xs text-slate-400 mt-1.5">Minimum 6 characters long.</p>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4 bg-white">
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <Lock size={16} className="text-slate-400" />
-              New Password
-            </label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Leave blank to keep current"
-              minLength={6}
-            />
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">* Must be at least 6 characters.</p>
-          </Card>
-
-          <div className="flex gap-3 pt-2">
+          {/* Action Button Row */}
+          <div className="flex flex-col-reverse sm:flex-row items-center gap-3 pt-2">
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700"
+              className="w-full sm:flex-1 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all"
               onClick={() => {
                 setIsEditing(false);
                 setLocalError('');
@@ -265,18 +371,24 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
+
+            <Button 
+              type="submit" 
+              className="w-full sm:flex-1 h-12 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-500/25 transition-all hover:-translate-y-0.5" 
+              disabled={loading}
+            >
+              {loading ? 'Saving Changes...' : 'Save Changes'}
             </Button>
           </div>
         </form>
       )}
 
+      {/* Floating Fallback Toast */}
       {fallbackToast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg border border-slate-800 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Profile updated successfully!
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-5 py-3 rounded-full shadow-2xl border border-white/10 flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Profile updated successfully!</span>
           </div>
         </div>
       )}

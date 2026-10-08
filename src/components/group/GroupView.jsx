@@ -26,7 +26,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       </header>
 
       {/* Main Tab Area with dynamic layout fix for chat input */}
-      <main className={`relative min-w-0 min-h-0 flex-1 overscroll-y-contain md:order-3 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'overflow-y-auto pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-0'}`}>
+      <main className={`relative min-w-0 min-h-0 flex-1 overscroll-y-contain md:order-3 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0'}`}>
         {activeTab === 'expenses' && (
           <ExpensesTab 
             expenses={sortedExpenses} 
@@ -88,7 +88,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       {activeTab === 'expenses' && (
         <button 
           onClick={() => setActiveTab('add')} 
-          className="absolute bottom-20 right-5 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] active:scale-95 transition-transform z-30 md:bottom-8 md:right-8"
+          className="absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-5 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-[0_8px_20px_rgba(79,70,229,0.4)] transition-transform active:scale-95 z-30 md:bottom-8 md:right-8"
           title="Add Expense"
         >
           <Plus size={28} />
