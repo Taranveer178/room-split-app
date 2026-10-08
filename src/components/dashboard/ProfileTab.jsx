@@ -137,11 +137,8 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
       {/* Header Title */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100/70 text-blue-700 text-xs font-bold mb-1.5">
-            <Sparkles size={12} />
-            <span>Account Details</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Your Profile</h1>
+          
+          
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { 
   Bell, 
   BellOff, 
@@ -14,15 +15,20 @@ export default function ActivityTab({
   user, 
   onOpenGroup, 
   onClearNotifications,
-  onMarkNotificationsRead 
+  showToast
 }) {
+  const [isClearing, setIsClearing] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleClear = () => {
-    if (typeof onClearNotifications === 'function') {
-      onClearNotifications();
-    } else if (typeof onMarkNotificationsRead === 'function') {
-      onMarkNotificationsRead(notifications.map((n) => n.id));
+  const handleClear = async () => {
+    if (typeof onClearNotifications !== 'function' || isClearing) return;
+    setIsClearing(true);
+    try {
+      await onClearNotifications(notifications.map((notification) => notification.id));
+    } catch {
+      showToast?.('Could not clear notifications. Please try again.', 'error');
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -82,11 +88,12 @@ export default function ActivityTab({
           <button
             type="button"
             onClick={handleClear}
-            className="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50/70 text-slate-600 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 shadow-sm transition-all text-xs font-bold active:scale-95"
+            disabled={isClearing}
+            className="group flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50/70 text-slate-600 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 shadow-sm transition-all text-xs font-bold active:scale-95 disabled:cursor-wait disabled:opacity-60"
             title="Clear all notifications"
           >
             <Trash2 size={14} className="text-slate-400 group-hover:text-rose-600 transition-colors" />
-            <span>Clear All</span>
+            <span>{isClearing ? 'Clearing…' : 'Clear All'}</span>
           </button>
         )}
       </div>

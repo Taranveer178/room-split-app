@@ -1,25 +1,67 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, TrendingUp, 
-  ArrowUpRight, ArrowDownLeft, PieChart, Receipt, Layers 
+  ArrowUpRight, PieChart, Receipt, IndianRupee,
+  Utensils, Car, Home, ShoppingBag, Zap, HelpCircle, X, CalendarDays
 } from 'lucide-react';
-import { Card } from '../common/UI';
 
-const CATEGORY_COLORS = {
-  Food: 'bg-amber-500',
-  Travel: 'bg-sky-500',
-  Rent: 'bg-indigo-500',
-  Utilities: 'bg-purple-500',
-  Shopping: 'bg-emerald-500',
-  Other: 'bg-slate-400'
+const CATEGORY_META = {
+  Food: {
+    color: 'bg-amber-500',
+    softBg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
+    textColor: 'text-amber-600',
+    icon: <Utensils size={14} className="text-amber-600" />
+  },
+  Travel: {
+    color: 'bg-sky-500',
+    softBg: 'bg-sky-500/10',
+    border: 'border-sky-500/20',
+    textColor: 'text-sky-600',
+    icon: <Car size={14} className="text-sky-600" />
+  },
+  Rent: {
+    color: 'bg-blue-500',
+    softBg: 'bg-blue-500/10',
+    border: 'border-blue-500/20',
+    textColor: 'text-blue-600',
+    icon: <Home size={14} className="text-blue-600" />
+  },
+  Utilities: {
+    color: 'bg-indigo-500',
+    softBg: 'bg-indigo-500/10',
+    border: 'border-indigo-500/20',
+    textColor: 'text-indigo-600',
+    icon: <Zap size={14} className="text-indigo-600" />
+  },
+  Shopping: {
+    color: 'bg-emerald-500',
+    softBg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
+    textColor: 'text-emerald-600',
+    icon: <ShoppingBag size={14} className="text-emerald-600" />
+  },
+  Other: {
+    color: 'bg-slate-400',
+    softBg: 'bg-slate-500/10',
+    border: 'border-slate-500/20',
+    textColor: 'text-slate-600',
+    icon: <HelpCircle size={14} className="text-slate-500" />
+  }
+};
+
+const getCategoryMeta = (name = 'Other') => {
+  return CATEGORY_META[name] || CATEGORY_META.Other;
 };
 
 export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }) {
   // Default to current year and month (YYYY-MM)
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedBreakdown, setSelectedBreakdown] = useState(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+  const userId = user?.id;
 
   const formattedMonthLabel = currentDate.toLocaleDateString('en-US', {
     month: 'long',
@@ -51,12 +93,12 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
       const amount = parseFloat(exp.totalAmount) || 0;
       totalGroupSpent += amount;
 
-      if (exp.paidBy === user?.id) {
+      if (exp.paidBy === userId) {
         youPaidTotal += amount;
       }
 
-      if (exp.splits && exp.splits[user?.id]) {
-        yourShareTotal += parseFloat(exp.splits[user.id]) || 0;
+      if (exp.splits && exp.splits[userId]) {
+        yourShareTotal += parseFloat(exp.splits[userId]) || 0;
       }
 
       const cat = exp.category || 'Other';
@@ -72,123 +114,234 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
       .sort((a, b) => b.total - a.total);
 
     return { totalGroupSpent, yourShareTotal, youPaidTotal, categoryList };
-  }, [monthlyExpenses, user?.id]);
+  }, [monthlyExpenses, userId]);
+
+  const breakdownExpenses = selectedBreakdown?.type === 'paid'
+    ? monthlyExpenses.filter((expense) => expense.paidBy === user?.id)
+    : selectedBreakdown?.type === 'category'
+      ? monthlyExpenses.filter((expense) => (expense.category || 'Other') === selectedBreakdown.category)
+      : monthlyExpenses;
+  const breakdownTotal = breakdownExpenses.reduce((total, expense) => total + (parseFloat(expense.totalAmount) || 0), 0);
+
+  const openBreakdown = (type, title, category) => {
+    setSelectedBreakdown({ type, title, category });
+  };
 
   return (
-    <div className="p-5 animate-in fade-in duration-200 pb-16 space-y-5">
-      {/* Header & Month Selector */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Monthly Spend</h1>
-          <p className="text-slate-400 text-xs mt-0.5">Track group and personal expenditure</p>
-        </div>
+    <div className="p-4 sm:p-6 lg:p-10 space-y-4 pb-[130px] md:pb-36 relative min-h-full max-w-4xl mx-auto animate-in fade-in duration-300">
+      
+      {/* Ambient background glows */}
+      <div className="absolute top-0 right-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Month Switcher Controls */}
-        <div className="flex items-center bg-white border border-slate-200/80 rounded-2xl p-1 shadow-xs">
-          <button 
-            onClick={handlePrevMonth} 
-            className="p-1.5 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors active:scale-95"
-            title="Previous Month"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-xs font-bold text-slate-700 px-2 min-w-[105px] text-center select-none">
-            {formattedMonthLabel}
-          </span>
-          <button 
-            onClick={handleNextMonth} 
-            className="p-1.5 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors active:scale-95"
-            title="Next Month"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* Main Spend Stats Card */}
-      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-5 shadow-xl border border-indigo-950/50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-44 h-44 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="flex items-center justify-between text-indigo-200/80 text-xs font-semibold uppercase tracking-wider mb-1">
-          <span>Your Net Share</span>
-          <span className="text-[11px] bg-white/10 px-2 py-0.5 rounded-full text-white font-medium">
-            {monthlyExpenses.length} bill{monthlyExpenses.length === 1 ? '' : 's'}
-          </span>
-        </div>
-
-        <div className="text-3xl font-black font-mono tracking-tight text-white mb-5">
-          ₹{stats.yourShareTotal.toFixed(2)}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 pt-3.5 border-t border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-              <ArrowUpRight size={16} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-400 font-medium">You Paid Out</p>
-              <p className="text-sm font-bold text-slate-100 font-mono">₹{stats.youPaidTotal.toFixed(2)}</p>
-            </div>
+      {/* Header Month Switcher Card (Frosted Liquid Glass) */}
+      <div className="relative overflow-hidden rounded-[28px] p-4 sm:p-5 bg-white/85 backdrop-blur-2xl border border-white/70 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-0.5">
+              Analytics Overview
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight truncate">
+              {formattedMonthLabel}
+            </h2>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0">
-              <TrendingUp size={16} strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-400 font-medium">Total Group Spend</p>
-              <p className="text-sm font-bold text-slate-100 font-mono">₹{stats.totalGroupSpent.toFixed(2)}</p>
-            </div>
+          {/* Month Switcher Controls */}
+          <div className="flex items-center bg-white/80 backdrop-blur-md border border-slate-200/70 rounded-2xl p-1 shadow-2xs">
+            <button 
+              onClick={handlePrevMonth} 
+              className="p-2 hover:bg-slate-100 text-slate-600 hover:text-blue-600 rounded-xl transition-all active:scale-95"
+              title="Previous Month"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-bold text-slate-700 px-2.5 min-w-[90px] text-center select-none truncate">
+              {currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </span>
+            <button 
+              onClick={handleNextMonth} 
+              className="p-2 hover:bg-slate-100 text-slate-600 hover:text-blue-600 rounded-xl transition-all active:scale-95"
+              title="Next Month"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Category Breakdown Section */}
-      <Card className="p-4 bg-white border border-slate-100/90 space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+      {/* Main Spend Stats Card (Theme Gradient Hero) */}
+      <div className="relative overflow-hidden rounded-[28px] p-6 sm:p-7 text-white bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 border border-white/20 shadow-lg shadow-blue-500/20">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-cyan-400/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center justify-between text-blue-200 text-xs font-bold uppercase tracking-wider mb-1">
+            <span>Your Net Share</span>
+            <span className="text-[11px] bg-white/15 backdrop-blur-md px-3 py-0.5 rounded-full text-white font-semibold border border-white/20 shadow-inner">
+              {monthlyExpenses.length} bill{monthlyExpenses.length === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 text-3xl sm:text-4xl font-black font-mono tracking-tight text-white my-2">
+            <IndianRupee size={28} className="stroke-[3]" />
+            <span>{stats.yourShareTotal.toFixed(2)}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-4 mt-3 border-t border-white/15">
+            <button
+              type="button"
+              onClick={() => openBreakdown('paid', 'You Paid Out')}
+              className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-2.5 text-left backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label={`View expenses you paid, totaling ₹${stats.youPaidTotal.toFixed(2)}`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
+                <ArrowUpRight size={18} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">You Paid Out</p>
+                <p className="text-sm font-extrabold text-white font-mono truncate">₹{stats.youPaidTotal.toFixed(2)}</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openBreakdown('all', 'Total Group Spending')}
+              className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-2.5 text-left backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label={`View all group expenses, totaling ₹${stats.totalGroupSpent.toFixed(2)}`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-white/20 text-blue-200 flex items-center justify-center flex-shrink-0">
+                <TrendingUp size={18} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-blue-100/80 font-bold uppercase tracking-wider">Total Group</p>
+                <p className="text-sm font-extrabold text-white font-mono truncate">₹{stats.totalGroupSpent.toFixed(2)}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Breakdown Section (Liquid Glass Card) */}
+      <div className="relative overflow-hidden rounded-[28px] p-5 sm:p-6 bg-white/85 backdrop-blur-2xl border border-white/70 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <PieChart size={16} className="text-indigo-600" />
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Top Spending Categories</h2>
+            <div className="w-7 h-7 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/60">
+              <PieChart size={15} />
+            </div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Spending By Category</h3>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium">
+          <span className="text-[11px] font-bold text-slate-400 bg-slate-100/80 px-2.5 py-0.5 rounded-full border border-slate-200/50">
             {stats.categoryList.length} categories
           </span>
         </div>
 
         {stats.categoryList.length === 0 ? (
-          <div className="text-center py-6">
-            <div className="w-12 h-12 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto mb-2">
-              <Receipt size={22} />
+          <div className="text-center py-10">
+            <div className="w-14 h-14 bg-gradient-to-tr from-blue-50 to-indigo-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-2 border border-blue-100 shadow-inner">
+              <Receipt size={24} />
             </div>
-            <p className="text-xs text-slate-400 font-medium">No expenses logged for {formattedMonthLabel}</p>
+            <p className="text-sm font-bold text-slate-700">No expenses logged</p>
+            <p className="text-xs text-slate-400 mt-0.5">Nothing recorded for {formattedMonthLabel}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {stats.categoryList.map((cat) => (
-              <div key={cat.name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${CATEGORY_COLORS[cat.name] || 'bg-slate-400'}`} />
-                    <span className="font-semibold text-slate-700">{cat.name}</span>
+          <div className="space-y-3.5">
+            {stats.categoryList.map((cat) => {
+              const meta = getCategoryMeta(cat.name);
+              return (
+                <button
+                  key={cat.name}
+                  type="button"
+                  onClick={() => openBreakdown('category', `${cat.name} Spending`, cat.name)}
+                  className="w-full space-y-1.5 rounded-2xl p-2 text-left transition-colors hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={`View ${cat.name} expenses, totaling ₹${cat.total.toFixed(2)}`}
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-7 h-7 rounded-xl flex items-center justify-center border ${meta.softBg} ${meta.border}`}>
+                        {meta.icon}
+                      </div>
+                      <span className="font-bold text-slate-800 text-xs">{cat.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 font-mono">
+                      <span className="text-slate-400 text-[11px] font-semibold">{cat.percentage}%</span>
+                      <span className="font-bold text-slate-900 text-xs">₹{cat.total.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 font-mono">
-                    <span className="text-slate-400 text-[11px] font-normal">{cat.percentage}%</span>
-                    <span className="font-bold text-slate-800">₹{cat.total.toFixed(2)}</span>
-                  </div>
-                </div>
 
-                {/* Progress bar */}
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-300 ${CATEGORY_COLORS[cat.name] || 'bg-slate-400'}`}
-                    style={{ width: `${cat.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                  {/* Liquid Styled Progress Bar */}
+                  <div className="w-full bg-slate-100/90 h-2 rounded-full overflow-hidden p-[1px] border border-slate-200/40">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${meta.color} shadow-xs`}
+                      style={{ width: `${cat.percentage}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
-      </Card>
+      </div>
+
+      {selectedBreakdown && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedBreakdown(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="spending-breakdown-title"
+            className="relative flex max-h-[85dvh] w-full max-w-sm flex-col overflow-hidden rounded-[32px] border border-white/60 bg-white/85 p-5 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] backdrop-blur-2xl animate-in zoom-in-95 duration-200 md:max-w-2xl md:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-blue-400/20 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 h-44 w-44 rounded-full bg-cyan-400/20 blur-2xl" />
+            <header className="relative flex items-start justify-between gap-4 border-b border-slate-200/50 pb-3.5">
+              <div className="min-w-0">
+                <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                  <CalendarDays size={14} /> {formattedMonthLabel}
+                </p>
+                <h3 id="spending-breakdown-title" className="text-base font-extrabold leading-tight text-slate-900">{selectedBreakdown.title}</h3>
+                <p className="mt-1 font-mono text-xs font-semibold text-blue-700">₹{breakdownTotal.toFixed(2)} · {breakdownExpenses.length} expense{breakdownExpenses.length === 1 ? '' : 's'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedBreakdown(null)}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200/50 bg-white/60 text-slate-400 shadow-sm transition-colors hover:bg-white/90 hover:text-slate-700"
+                aria-label="Close spending details"
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="breakdown-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pt-3">
+              {breakdownExpenses.length === 0 ? (
+                <p className="px-4 py-10 text-center text-xs text-slate-500">No matching expenses for this month.</p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {breakdownExpenses
+                    .slice()
+                    .sort((first, second) => (second.date || '').localeCompare(first.date || ''))
+                    .map((expense) => {
+                      const groupName = groups.find((group) => group.id === expense.groupId)?.name || 'Group';
+                      const payerName = expense.paidBy === user?.id ? 'Paid by you' : 'Paid by a group member';
+                      return (
+                        <li key={expense.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/70 bg-white/60 p-2.5 shadow-sm backdrop-blur-md">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-slate-800">{expense.title || expense.category || 'Expense'}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-slate-500">{groupName} · {expense.category || 'Other'} · {payerName}</p>
+                            <p className="mt-1 text-[10px] text-slate-400">{expense.date ? new Date(`${expense.date}T00:00:00`).toLocaleDateString() : ''}</p>
+                          </div>
+                          <span className="flex-shrink-0 font-mono text-xs font-bold text-slate-900">₹{(parseFloat(expense.totalAmount) || 0).toFixed(2)}</span>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
     </div>
   );
 }

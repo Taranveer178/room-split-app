@@ -7,7 +7,7 @@ import ActivityTab from './ActivityTab';
 import MonthlyAnalyticsTab from './MonthlyAnalyticsTab';
 import ProfileTabView from './ProfileTab';
 
-export default function Dashboard({ user, groups, notifications, expenses = [], onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, onTabChange, initialTab = 'groups', showToast }) {
+export default function Dashboard({ user, groups, notifications, expenses = [], onLogout, onOpenGroup, onCreateGroup, onJoinGroup, onUpdateUser, onMarkNotificationsRead, onClearNotifications, onTabChange, initialTab = 'groups', showToast }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -290,7 +290,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
           {activeTab !== 'groups' && (
             <div className="h-full p-0 sm:p-4 md:p-8">
               {activeTab === 'notifications' && (
-                <ActivityTab notifications={notifications} user={user} onOpenGroup={onOpenGroup} />
+                <ActivityTab notifications={notifications} user={user} onOpenGroup={onOpenGroup} onClearNotifications={onClearNotifications} showToast={showToast} />
               )}
               {activeTab === 'monthly' && (
                 <MonthlyAnalyticsTab user={user} expenses={expenses} groups={groups} />

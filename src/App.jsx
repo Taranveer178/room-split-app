@@ -189,6 +189,26 @@ export default function App() {
     });
   };
 
+  const clearNotifications = async (notificationIds) => {
+    const requestedIds = new Set(notificationIds);
+    const ownedNotifications = notifications.filter((notification) => (
+      requestedIds.has(notification.id) && notification.recipientId === activeUserId
+    ));
+    if (!ownedNotifications.length) return;
+
+    const deletedIds = new Set(ownedNotifications.map((notification) => notification.id));
+    if (db) {
+      await Promise.all(ownedNotifications.map((notification) => (
+        deleteDoc(doc(db, 'notifications', notification.id))
+      )));
+    } else {
+      localStorage.setItem('rs_notifications', JSON.stringify(
+        notifications.filter((notification) => !deletedIds.has(notification.id))
+      ));
+    }
+    setNotifications((previous) => previous.filter((notification) => !deletedIds.has(notification.id)));
+  };
+
   const saveGroup = async (newGroup) => {
     if (db) {
       await setDoc(doc(db, 'groups', newGroup.id), newGroup);
@@ -304,6 +324,7 @@ export default function App() {
           onUpdateUser={updateUser}
           notifications={notifications.filter((notification) => notification.recipientId === activeUser.id)}
           onMarkNotificationsRead={markNotificationsRead}
+          onClearNotifications={clearNotifications}
           onTabChange={setDashboardTab}
         />
       ) : currentView === 'create_group' ? (
