@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Button, Input } from '../common/UI';
@@ -8,14 +8,19 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  
-  // New state for toggling password visibility
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Animation state for smooth mount
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     const cleanUser = username.trim();
+    
     if (isLogin) {
       const user = users.find(
         (item) => item.username.toLowerCase() === cleanUser.toLowerCase() && item.password === password
@@ -24,6 +29,7 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
       else setError('Invalid username or password.');
       return;
     }
+    
     if (cleanUser.length < 3) {
       setError('Username must be at least 3 characters.');
       return;
@@ -36,6 +42,7 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
       setError('Username already taken. Please sign in.');
       return;
     }
+    
     const newUser = { 
       id: `usr_${Date.now()}`, 
       username: cleanUser, 
@@ -47,43 +54,40 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
   };
 
   return (
-    <div className="min-h-screen w-full flex relative bg-slate-900 overflow-hidden">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 font-sans">
       
-      {/* 1. Full Screen Background Layer */}
-      <div className="absolute inset-0 z-0">
-        {/* You can swap this out with any GIF or Image link you like */}
-        <img 
-          src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" 
-          alt="Modern Apartment Background" 
-          className="w-full h-full object-cover opacity-80"
-        />
-        {/* Dark gradient overlay so the image isn't too distracting */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/60 via-slate-900/30 to-slate-900/10"></div>
-      </div>
+      {/* --- BACKGROUND EFFECTS --- */}
+      {/* Blurred orbs to enhance the glassmorphism effect */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-cyan-400 rounded-full mix-blend-overlay filter blur-[100px] opacity-70 animate-[pulse_6s_ease-in-out_infinite]"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-indigo-500 rounded-full mix-blend-overlay filter blur-[120px] opacity-80"></div>
+      <div className="absolute top-[20%] right-[20%] w-64 h-64 bg-blue-300 rounded-full mix-blend-overlay filter blur-[80px] opacity-50"></div>
 
-      {/* 2. Form Container Wrapper (Forces the box to the right side on Desktop) */}
-      <div className="relative z-10 w-full flex justify-end min-h-screen">
+      {/* --- IOS GLASSMORPHISM CARD --- */}
+      <div className={`relative z-10 w-full max-w-md mx-4 p-8 sm:p-10 transition-all duration-1000 transform ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-12 opacity-0 scale-95'} bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_0_rgba(31,38,135,0.2)] rounded-[2rem]`}>
         
-        {/* 3. The Form Card (Vertically centered, anchored to right) */}
-        <div className="w-full md:w-[500px] bg-white/95 backdrop-blur-lg shadow-2xl flex flex-col justify-center px-8 sm:px-14 py-12 h-full">
-          
-          <div className="text-center mb-10">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center overflow-hidden bg-white border border-slate-100 p-2">
-              <img src={roomsplitIcon} alt="RoomSplit Logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">RoomSplit</h1>
-            <p className="text-slate-500 mt-2 font-medium">Shared expenses, sorted.</p>
+        {/* Header & Logo */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 mx-auto mb-5 bg-white/90 rounded-2xl p-2 shadow-lg border border-white flex items-center justify-center backdrop-blur-md hover:scale-105 transition-transform duration-300">
+            <img src={roomsplitIcon} alt="RoomSplit Logo" className="w-full h-full object-contain" />
           </div>
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">RoomSplit</h1>
+          <p className="text-slate-600 mt-2 font-medium">
+            {isLogin ? 'Sign in to manage your expenses.' : 'Create an account to get started.'}
+          </p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-start gap-2 border border-red-100 animate-in fade-in zoom-in-95 duration-200">
-                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                <p>{error}</p>
-              </div>
-            )}
-            
-            <div className="space-y-1">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50/90 backdrop-blur-sm text-red-600 p-4 rounded-xl text-sm flex items-start gap-2 border border-red-200 animate-[pulse_0.5s_ease-in-out]">
+              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+              <p>{error}</p>
+            </div>
+          )}
+          
+          <div className="space-y-1 group">
+            <div className="transition-all duration-300 transform group-focus-within:-translate-y-1">
               <Input 
                 label="Username" 
                 placeholder="e.g. Taran" 
@@ -93,9 +97,10 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
                 required 
               />
             </div>
+          </div>
 
-            {/* Password Field with Custom Show/Hide Button */}
-            <div className="space-y-1 relative group">
+          <div className="space-y-1 relative group">
+            <div className="transition-all duration-300 transform group-focus-within:-translate-y-1">
               <Input 
                 label="Password" 
                 type={showPassword ? 'text' : 'password'} 
@@ -104,40 +109,60 @@ export default function AuthScreen({ users, onSaveUser, onLogin }) {
                 onChange={(event) => setPassword(event.target.value)} 
                 required 
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                // Adjust the `bottom-x` value depending on how your <Input/> component handles padding/margins
-                className="absolute right-4 bottom-[0.8rem] text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
-                title={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
             </div>
-
-            <Button 
-              type="submit" 
-              className="w-full mt-8 h-14 text-lg font-semibold shadow-md shadow-indigo-200 hover:-translate-y-0.5 transition-transform duration-200"
+            
+            {/* Professional Animated Eye Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 bottom-[0.8rem] p-1 text-slate-500 hover:text-blue-600 transition-colors focus:outline-none z-10 flex items-center justify-center"
+              title={showPassword ? "Hide password" : "Show password"}
             >
-              {isLogin ? 'Sign In' : 'Create Account'}
-            </Button>
-          </form>
-
-          <div className="mt-10 text-center">
-            <button 
-              onClick={() => { 
-                setIsLogin(!isLogin); 
-                setError(''); 
-                setPassword(''); // Good practice to clear password on switch
-              }} 
-              className="text-slate-500 font-medium hover:text-indigo-600 transition-colors"
-            >
-              {isLogin ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
+              <div className="relative w-5 h-5">
+                {/* Closed Eye (EyeOff) */}
+                <EyeOff 
+                  size={20} 
+                  className={`absolute inset-0 transition-all duration-300 transform ${
+                    showPassword ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'
+                  }`} 
+                />
+                {/* Open Eye (Eye) */}
+                <Eye 
+                  size={20} 
+                  className={`absolute inset-0 transition-all duration-300 transform ${
+                    showPassword ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'
+                  }`} 
+                />
+              </div>
             </button>
           </div>
-        </div>
-      </div>
 
+          <Button 
+            type="submit" 
+            className="w-full mt-6 h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all duration-300 rounded-xl border border-blue-500/50"
+          >
+            {isLogin ? 'Sign In' : 'Sign Up'}
+          </Button>
+        </form>
+
+        {/* Toggle between Sign In / Sign Up */}
+        <div className="mt-8 text-center">
+          <button 
+            onClick={() => { 
+              setIsLogin(!isLogin); 
+              setError(''); 
+              setPassword(''); 
+            }} 
+            className="text-slate-600 font-medium transition-colors inline-flex items-center gap-2 group"
+          >
+            {isLogin ? "Don't have an account?" : 'Already have an account?'}
+            <span className="text-blue-700 font-bold group-hover:text-blue-800 group-hover:underline transition-all">
+              {isLogin ? "Sign Up" : 'Sign In'}
+            </span>
+          </button>
+        </div>
+        
+      </div>
     </div>
   );
 }

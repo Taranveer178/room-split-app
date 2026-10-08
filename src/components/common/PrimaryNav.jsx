@@ -22,7 +22,7 @@ export default function PrimaryNav({
   desktopOnly = false,
 }) {
   return (
-    <nav className={`${desktopOnly ? 'hidden lg:flex' : 'absolute bottom-0 w-full border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:flex'} z-40 lg:static lg:order-1 lg:h-full lg:w-20 lg:flex-shrink-0 lg:flex-col lg:items-center lg:border-r lg:border-t-0 lg:bg-white lg:px-3 lg:py-5 lg:pb-5`}>
+    <nav className={`${desktopOnly ? 'hidden lg:flex' : 'flex w-full rounded-full border border-white/70 bg-white/90 px-1 shadow-lg shadow-slate-900/10 backdrop-blur-xl lg:flex'} z-40 lg:static lg:order-1 lg:h-full lg:w-20 lg:flex-shrink-0 lg:flex-col lg:items-center lg:rounded-none lg:border-r lg:border-t-0 lg:bg-white lg:px-3 lg:py-5 lg:pb-5 lg:shadow-none`}>
       <div className="hidden items-center justify-center lg:flex">
         <img
           src={roomsplitIcon}
@@ -31,7 +31,7 @@ export default function PrimaryNav({
         />
       </div>
 
-      <div className="grid h-16 w-full grid-cols-4 items-center lg:mt-8 lg:h-auto lg:grid-cols-1 lg:gap-2">
+      <div className="grid h-14 w-full grid-cols-4 items-center lg:mt-8 lg:h-auto lg:grid-cols-1 lg:gap-2">
         {ITEMS.map(({ id, label, icon: Icon }) => {
           const isActive = activeItem === id;
           return (

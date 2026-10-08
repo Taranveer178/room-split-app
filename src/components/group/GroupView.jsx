@@ -96,7 +96,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
       )}
 
       {/* Pinned Bottom Nav with mobile safe-area protection */}
-      <nav className="absolute bottom-0 z-30 w-full border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:static lg:order-2 lg:flex lg:h-full lg:w-64 lg:flex-shrink-0 lg:flex-col lg:border-t-0 lg:border-r lg:bg-white lg:px-4 lg:py-6 lg:pb-6">
+      <nav className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-30 w-[calc(100%-2rem)] max-w-[26rem] -translate-x-1/2 rounded-full border border-slate-200/80 bg-white/95 px-1 shadow-lg shadow-slate-900/10 backdrop-blur-xl lg:static lg:order-2 lg:flex lg:h-full lg:w-64 lg:max-w-none lg:flex-shrink-0 lg:flex-col lg:translate-x-0 lg:rounded-none lg:border-t-0 lg:border-r lg:bg-white lg:px-4 lg:py-6 lg:pb-6 lg:shadow-none">
         <div className="hidden border-b border-slate-100 px-2 pb-5 lg:block">
           <button onClick={onBack} className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-indigo-600">
             <ArrowLeft size={15} />
@@ -106,7 +106,7 @@ export default function GroupView({ group, expenses, onSaveExpense, onDeleteExpe
           <h2 className="mt-2 truncate text-lg font-bold text-slate-900">{group.name}</h2>
           <p className="mt-1 text-xs text-slate-500">{group.members.length} members</p>
         </div>
-        <div className="flex h-16 items-center justify-around lg:mt-5 lg:h-auto lg:flex-col lg:items-stretch lg:gap-1.5">
+        <div className="flex h-14 items-center justify-around lg:mt-5 lg:h-auto lg:flex-col lg:items-stretch lg:gap-1.5">
           <NavItem 
             icon={Receipt} 
             label="Expenses" 
