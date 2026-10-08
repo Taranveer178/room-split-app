@@ -110,7 +110,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       </header>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="relative z-10 min-w-0 flex-1 overscroll-y-contain overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom))] scrollbar-hide md:order-2 md:pb-0">
+      <main className="relative z-10 min-w-0 flex-1 overscroll-y-contain overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))] scrollbar-hide md:order-2 md:pb-0">
         <div className={`min-h-full transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
           
           {/* ============================== */}
