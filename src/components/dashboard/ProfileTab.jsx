@@ -11,11 +11,13 @@ import {
   QrCode, 
   KeyRound, 
   Sparkles,
-  Camera
+  Camera,
+  Bell
 } from 'lucide-react';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { Button, Card, Input } from '../common/UI';
+import { requestNotificationPermission, triggerPushNotification } from '../../utils/notifications';
 
 export default function ProfileTab({ user, onUpdateUser, showToast }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -27,6 +29,34 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
   const [fallbackToast, setFallbackToast] = useState(false);
+  const [testPushStatus, setTestPushStatus] = useState('');
+  const [testingPush, setTestingPush] = useState(false);
+
+  const handleTestPush = async () => {
+    setTestingPush(true);
+    setTestPushStatus('Registering FCM Token...');
+    try {
+      const res = await requestNotificationPermission(user);
+      if (!res?.success) {
+        setTestPushStatus(`Error: ${res?.error || 'Failed to get permission or token'}`);
+        return;
+      }
+      setTestPushStatus(`Token: ${res.token.substring(0, 15)}... Sending test push...`);
+      await triggerPushNotification({
+        recipientId: user.id,
+        title: 'Test Push Notification',
+        message: 'Push notifications are working correctly on RoomSplit!',
+        groupId: '',
+      });
+      setTestPushStatus('Success! Test push notification sent to your device.');
+      if (typeof showToast === 'function') showToast('Test push notification sent!');
+    } catch (err) {
+      console.error('Test push failed:', err);
+      setTestPushStatus(`Trigger Error: ${err.message}`);
+    } finally {
+      setTestingPush(false);
+    }
+  };
 
   const handlePhotoChange = async (event) => {
     const file = event.currentTarget.files?.[0];
@@ -220,6 +250,34 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
                   <p className="text-sm font-semibold text-slate-800 tracking-widest mt-0.5">••••••••</p>
                 </div>
               </div>
+            </div>
+
+            {/* Push Notification Diagnostics Card */}
+            <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                    <Bell size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Push Notification Diagnostics</p>
+                    <p className="text-xs text-slate-500">Test FCM delivery & device permissions</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestPush}
+                  disabled={testingPush}
+                  className="px-4 py-2 text-xs font-bold bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50"
+                >
+                  {testingPush ? 'Testing...' : 'Test Push'}
+                </button>
+              </div>
+              {testPushStatus && (
+                <p className={`text-xs font-mono p-3 rounded-xl break-all ${testPushStatus.startsWith('Success') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : testPushStatus.startsWith('Error') || testPushStatus.startsWith('Trigger Error') ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700'}`}>
+                  {testPushStatus}
+                </p>
+              )}
             </div>
 
             {/* Security Notice Footer */}

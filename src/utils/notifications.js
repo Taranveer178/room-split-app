@@ -23,7 +23,7 @@ export async function requestNotificationPermission(currentUser) {
   try {
     if (Capacitor.isNativePlatform()) {
       nativePushUserId = currentUser?.id || null;
-      if (!nativePushUserId) return null;
+      if (!nativePushUserId) return { success: false, error: 'No user ID logged in' };
 
       let permission = await PushNotifications.checkPermissions();
       if (permission.receive !== 'granted') {
@@ -31,51 +31,77 @@ export async function requestNotificationPermission(currentUser) {
       }
       if (permission.receive !== 'granted') {
         console.warn('Push notification permission not granted.');
-        return null;
+        return { success: false, error: 'Notification permission denied' };
       }
 
-      if (!nativePushListenersRegistered) {
-        await PushNotifications.createChannel({
-          id: 'default',
-          name: 'General Notifications',
-          description: 'RoomSplit group activities and updates',
-          importance: 5,
-          visibility: 1,
-          sound: 'default',
-          vibration: true,
-        }).catch((err) => console.warn('Failed to create default notification channel:', err));
+      await PushNotifications.createChannel({
+        id: 'default',
+        name: 'General Notifications',
+        description: 'RoomSplit group activities and updates',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+      }).catch((err) => console.warn('Failed to create default notification channel:', err));
 
-        await PushNotifications.addListener('registration', ({ value }) => {
-          savePushToken(value, nativePushUserId).catch((error) => {
-            console.error('Failed to save native FCM device token:', error);
+      return new Promise((resolve) => {
+        let settled = false;
+
+        PushNotifications.removeAllListeners().then(() => {
+          PushNotifications.addListener('registration', async ({ value }) => {
+            console.log('Native FCM Token generated:', value);
+            try {
+              await savePushToken(value, nativePushUserId);
+              if (!settled) {
+                settled = true;
+                resolve({ success: true, token: value });
+              }
+            } catch (err) {
+              if (!settled) {
+                settled = true;
+                resolve({ success: false, token: value, error: err.message });
+              }
+            }
           });
-        });
-        await PushNotifications.addListener('registrationError', (error) => {
-          console.error('Native FCM registration failed:', error);
-        });
-        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          console.log('Push notification received:', notification);
-        });
-        await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-          console.log('Push notification action performed:', action);
-        });
-        nativePushListenersRegistered = true;
-      }
 
-      await PushNotifications.register();
-      return null;
+          PushNotifications.addListener('registrationError', (error) => {
+            console.error('Native FCM registration failed:', error);
+            if (!settled) {
+              settled = true;
+              resolve({ success: false, error: JSON.stringify(error) });
+            }
+          });
+
+          PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            console.log('Push notification received:', notification);
+          });
+
+          PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+            console.log('Push notification action performed:', action);
+          });
+
+          PushNotifications.register();
+        });
+
+        setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            resolve({ success: false, error: 'Token generation timed out (check Play Services or network)' });
+          }
+        }, 12000);
+      });
     }
 
     const supported = await isSupported();
     if (!supported || !('Notification' in window)) {
       console.warn('FCM notifications are not supported on this browser.');
-      return null;
+      return { success: false, error: 'Notifications unsupported on browser' };
     }
 
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notification permission not granted.');
-      return null;
+      return { success: false, error: 'Permission not granted' };
     }
 
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -89,12 +115,13 @@ export async function requestNotificationPermission(currentUser) {
 
     if (token && currentUser?.id) {
       await savePushToken(token, currentUser.id);
-      return token;
+      return { success: true, token };
     }
+    return { success: false, error: 'Failed to generate token' };
   } catch (error) {
     console.error('Failed to register FCM device token:', error);
+    return { success: false, error: error.message };
   }
-  return null;
 }
 
 export async function listenToForegroundMessages(onMessageReceived) {

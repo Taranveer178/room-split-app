@@ -4,7 +4,7 @@
   "webDir": "dist",
   "plugins": {
     "PushNotifications": {
-      "presentationOptions": ["alert", "sound"]
+      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }
