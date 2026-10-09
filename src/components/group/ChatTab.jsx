@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
@@ -78,6 +78,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [clearing, setClearing] = useState(false);
 
   const bottomRef = useRef(null);
+  const messageFeedRef = useRef(null);
+  const messageContentRef = useRef(null);
+  const initialAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
   const pressTimerRef = useRef(null);
 
@@ -136,9 +139,37 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     return () => unsubscribe();
   }, [group?.id]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useLayoutEffect(() => {
+    const messageFeed = messageFeedRef.current;
+    if (!messageFeed) return;
+    messageFeed.style.overflowAnchor = 'none';
+    messageFeed.scrollTop = messageFeed.scrollHeight;
+    window.requestAnimationFrame(() => {
+      if (initialAutoScrollRef.current && messageFeedRef.current) {
+        messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+      }
+    });
+    const settleTimer = window.setTimeout(() => {
+      if (initialAutoScrollRef.current && messageFeedRef.current) {
+        messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+      }
+    }, 150);
+    return () => window.clearTimeout(settleTimer);
   }, [messages]);
+
+  useLayoutEffect(() => {
+    const messageFeed = messageFeedRef.current;
+    const messageContent = messageContentRef.current;
+    if (!messageFeed || !messageContent) return undefined;
+
+    const observer = new ResizeObserver(() => {
+      if (initialAutoScrollRef.current) {
+        messageFeed.scrollTop = messageFeed.scrollHeight;
+      }
+    });
+    observer.observe(messageContent);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!selectedImage) return undefined;
@@ -495,7 +526,18 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       )}
 
       {/* Main WhatsApp-Style Message Feed */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 space-y-1 relative z-10 scrollbar-hide">
+      <div
+        ref={messageFeedRef}
+        onWheel={() => { initialAutoScrollRef.current = false; }}
+        onTouchStart={() => { initialAutoScrollRef.current = false; }}
+        onLoadCapture={() => {
+          if (initialAutoScrollRef.current && messageFeedRef.current) {
+            messageFeedRef.current.scrollTop = messageFeedRef.current.scrollHeight;
+          }
+        }}
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 relative z-10 scrollbar-hide [overflow-anchor:none]"
+      >
+        <div ref={messageContentRef} className="flow-root space-y-1">
         {visibleMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <div className="w-16 h-16 rounded-3xl bg-white/80 backdrop-blur-md border border-white/80 text-blue-600 flex items-center justify-center mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
@@ -656,6 +698,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
           })
         )}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Tap-and-Hold Floating Context Menu (WhatsApp Style) */}
