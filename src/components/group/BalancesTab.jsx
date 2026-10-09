@@ -8,6 +8,7 @@ import {
 import { calculateSettlements } from '../../utils/settlement';
 import { Button } from '../common/UI';
 import { triggerPushNotification } from '../../utils/notifications';
+import { useBackHandler } from '../../utils/backNavigation';
 
 export default function BalancesTab({ 
   expenses, 
@@ -33,6 +34,12 @@ export default function BalancesTab({
   // Custom Quick Pay States
   const [customPayee, setCustomPayee] = useState('');
   const [customAmount, setCustomAmount] = useState('');
+
+  useBackHandler(Boolean(confirmSettlement || breakdownData), () => {
+    if (confirmSettlement) setConfirmSettlement(null);
+    else setBreakdownData(null);
+    return true;
+  }, 100);
 
   // Calculate Raw Pairwise (Exact) Settlements
   const rawSettlements = useMemo(() => {

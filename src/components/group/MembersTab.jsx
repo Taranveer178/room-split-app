@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { 
   AlertTriangle, 
   Copy, 
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { calculateSettlements, GROUP_DELETE_BALANCE_TOLERANCE } from '../../utils/settlement';
+import { useBackHandler } from '../../utils/backNavigation';
 
 export default function MembersTab({ 
   group, 
@@ -39,6 +40,18 @@ export default function MembersTab({
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
+
+  useBackHandler(
+    confirmingDelete || confirmingLeave || isInviteOpen || showQrModal,
+    () => {
+      if (showQrModal) setShowQrModal(false);
+      else if (isInviteOpen) setIsInviteOpen(false);
+      else if (confirmingDelete) setConfirmingDelete(false);
+      else setConfirmingLeave(false);
+      return true;
+    },
+    100
+  );
 
   const inviteUrl = `${window.location.origin}/?join=${encodeURIComponent(group.inviteCode)}`;
 

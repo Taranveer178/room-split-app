@@ -11,6 +11,7 @@ import BalancesTab from './BalancesTab';
 import ExpensesTab from './ExpensesTab';
 import MembersTab from './MembersTab';
 import ChatTab from './ChatTab';
+import { useBackHandler } from '../../utils/backNavigation';
 
 export default function GroupView({ 
   group, 
@@ -33,6 +34,19 @@ export default function GroupView({
   const [isInviteCopied, setIsInviteCopied] = useState(false);
   const drawerRef = useRef(null);
   const inviteUrl = `${window.location.origin}/?join=${encodeURIComponent(group.inviteCode)}`;
+
+  useBackHandler(activeTab !== 'expenses', () => {
+    setActiveTab('expenses');
+    return true;
+  }, 10);
+  useBackHandler(isDrawerOpen, () => {
+    setIsDrawerOpen(false);
+    return true;
+  }, 50);
+  useBackHandler(isQrOpen, () => {
+    setIsQrOpen(false);
+    return true;
+  }, 100);
 
   const getUserName = (userId) => users.find((user) => user.id === userId)?.username || 'Unknown';
   const sortedExpenses = [...expenses].sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));

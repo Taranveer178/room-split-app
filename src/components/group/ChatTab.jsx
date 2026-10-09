@@ -28,6 +28,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useBackHandler } from '../../utils/backNavigation';
 
 const EMOJI_CATEGORIES = {
   Recent: ['😀', '😂', '🥰', '😍', '😎', '😭', '😅', '🤔', '🙌', '👏', '👍', '👎', '🙏', '❤️', '🔥', '🎉', '✨', '💸', '🍕', '☕', '🏠', '✅', '❌'],
@@ -76,6 +77,20 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [sharingGroupId, setSharingGroupId] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  useBackHandler(
+    Boolean(selectedImage || deleteDialogMessage || shareDialogMessage || showClearConfirm || activeContextMenu || pickerTab),
+    () => {
+      if (selectedImage) setSelectedImage(null);
+      else if (deleteDialogMessage) setDeleteDialogMessage(null);
+      else if (shareDialogMessage) setShareDialogMessage(null);
+      else if (showClearConfirm) setShowClearConfirm(false);
+      else if (activeContextMenu) setActiveContextMenu(null);
+      else setPickerTab(null);
+      return true;
+    },
+    100
+  );
 
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
