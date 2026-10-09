@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "6706257446",
+    "project_id": "roomsplit-86601",
+    "storage_bucket": "roomsplit-86601.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6706257446:android:2ce2c92bdb2f9735c310e7",
+        "android_client_info": {
+          "package_name": "com.taranveer.roomsplit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_OIt7n0Q1ECHVRRe8ePSodS3pDBDTwPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

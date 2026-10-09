@@ -15,6 +15,10 @@ import ChatTab from './ChatTab';
 export default function GroupView({ 
   group, 
   initialTab = 'expenses',
+  initialDrawerOpen = false,
+  onGroupTabChange,
+  onOpenRoomOptions,
+  onCloseRoomOptions,
   onActiveChatChange,
   groups = [],
   expenses, 
@@ -29,8 +33,8 @@ export default function GroupView({
   onNavigateDashboard, 
   showToast 
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const activeTab = initialTab;
+  const isDrawerOpen = initialDrawerOpen;
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isInviteCopied, setIsInviteCopied] = useState(false);
   const drawerRef = useRef(null);
@@ -42,11 +46,11 @@ export default function GroupView({
   // Close drawer on escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsDrawerOpen(false);
+      if (e.key === 'Escape' && isDrawerOpen) onCloseRoomOptions?.();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isDrawerOpen, onCloseRoomOptions]);
 
   useEffect(() => {
     onActiveChatChange?.(activeTab === 'chat' ? group.id : null);
@@ -54,8 +58,7 @@ export default function GroupView({
   }, [activeTab, group.id, onActiveChatChange]);
 
   const handleTabSelect = (tab) => {
-    setActiveTab(tab);
-    setIsDrawerOpen(false);
+    onGroupTabChange?.(tab, { replace: isDrawerOpen });
   };
 
   const copyInviteCode = async () => {
@@ -117,7 +120,7 @@ export default function GroupView({
           </button>
 
           <div 
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={onOpenRoomOptions}
             className="min-w-0 cursor-pointer group select-none"
             title="Open Room Details"
           >
@@ -139,7 +142,7 @@ export default function GroupView({
           {/* Expenses Tab Button */}
           <button
             type="button"
-            onClick={() => setActiveTab('expenses')}
+            onClick={() => handleTabSelect('expenses')}
             className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'expenses' || activeTab === 'add'
                 ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
@@ -154,7 +157,7 @@ export default function GroupView({
           {/* Chat Tab Button */}
           <button
             type="button"
-            onClick={() => setActiveTab('chat')}
+            onClick={() => handleTabSelect('chat')}
             className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'chat'
                 ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
@@ -169,7 +172,7 @@ export default function GroupView({
           {/* Balance Tab Button */}
           <button
             type="button"
-            onClick={() => setActiveTab('balances')}
+            onClick={() => handleTabSelect('balances')}
             className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'balances'
                 ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
@@ -187,7 +190,7 @@ export default function GroupView({
           {/* Three-Dots / Hamburger Button (Opens Slide-over Drawer) */}
           <button
             type="button"
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={onOpenRoomOptions}
             className={`p-2 rounded-xl transition-all active:scale-95 ${
               activeTab === 'members' || isDrawerOpen
                 ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
@@ -230,7 +233,7 @@ export default function GroupView({
             getUserName={getUserName} 
             onSaveExpense={onSaveExpense} 
             onSendNotification={onSendNotification}
-            onSaved={() => setActiveTab('expenses')} 
+            onSaved={() => handleTabSelect('expenses')}
             showToast={showToast} 
           />
         )}
@@ -274,7 +277,7 @@ export default function GroupView({
       {/* Floating Add Expense Button */}
       {activeTab === 'expenses' && (
         <button 
-          onClick={() => setActiveTab('add')} 
+          onClick={() => handleTabSelect('add')}
           aria-label="Add expense"
           className="fixed bottom-6 right-6 z-30 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-0 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)] transition-all duration-200 active:scale-90 hover:scale-105"
           title="Add Expense"
@@ -293,7 +296,7 @@ export default function GroupView({
           {/* Backdrop Click */}
           <div 
             className="flex-1"
-            onClick={() => setIsDrawerOpen(false)}
+            onClick={onCloseRoomOptions}
           />
 
           {/* Drawer Container */}
@@ -315,7 +318,7 @@ export default function GroupView({
               </div>
 
               <button 
-                onClick={() => setIsDrawerOpen(false)}
+                onClick={onCloseRoomOptions}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
                 aria-label="Close sidebar"
               >

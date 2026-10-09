@@ -46,7 +46,12 @@ const getRouteFromLocation = () => {
     return { view: 'join_group', inviteCode };
   }
   if (groupRoute) {
-    return { view: 'group', groupSlug: decodeURIComponent(groupRoute[1]) };
+    return {
+      view: 'group',
+      groupSlug: decodeURIComponent(groupRoute[1]),
+      initialTab: 'expenses',
+      drawerOpen: false,
+    };
   }
   return {
     view: 'dashboard',
@@ -110,6 +115,7 @@ export default function App() {
     initialRoute.groupId || initialRoute.groupSlug || null
   );
   const [currentGroupInitialTab, setCurrentGroupInitialTab] = useState('expenses');
+  const [currentGroupDrawerOpen, setCurrentGroupDrawerOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [incomingChat, setIncomingChat] = useState(null);
   const [activeChatGroupId, setActiveChatGroupId] = useState(null);
@@ -117,6 +123,7 @@ export default function App() {
     () => Date.now() - 7 * 24 * 60 * 60 * 1000
   );
   const historyInitializedRef = useRef(false);
+  const currentRouteRef = useRef(initialRoute);
   const joinedGroupIds = groups
     .filter((group) => activeUserId && group.members?.includes(activeUserId))
     .map((group) => group.id)
@@ -130,18 +137,27 @@ export default function App() {
   }, []);
 
   const applyRoute = (route) => {
+    currentRouteRef.current = route;
     setCurrentView(route.view);
     setCurrentGroupRoute(route.groupId || route.groupSlug || null);
-    if (route.view === 'group') setCurrentGroupInitialTab(route.initialTab || 'expenses');
+    if (route.view === 'group') {
+      setCurrentGroupInitialTab(route.initialTab || 'expenses');
+      setCurrentGroupDrawerOpen(Boolean(route.drawerOpen));
+    } else {
+      setCurrentGroupDrawerOpen(false);
+    }
     if (route.view === 'dashboard') setDashboardTab(route.dashboardTab || 'groups');
   };
 
   const navigateTo = (route, { replace = false } = {}) => {
-    const state = { roomSplitRoute: route };
-    const url = getRouteUrl(route);
+    const normalizedRoute = route.view === 'group'
+      ? { initialTab: 'expenses', drawerOpen: false, ...route }
+      : route;
+    const state = { roomSplitRoute: normalizedRoute };
+    const url = getRouteUrl(normalizedRoute);
     if (replace) window.history.replaceState(state, '', url);
     else window.history.pushState(state, '', url);
-    applyRoute(route);
+    applyRoute(normalizedRoute);
   };
 
   const goBack = () => {
@@ -159,12 +175,30 @@ export default function App() {
     }
 
     const handlePopState = (event) => {
-      if (event.state?.roomSplitRoute) {
-        applyRoute(event.state.roomSplitRoute);
+      const previousRoute = currentRouteRef.current;
+      const destinationRoute = event.state?.roomSplitRoute;
+      if (
+        (!destinationRoute || destinationRoute.view === 'dashboard')
+        && previousRoute.view === 'group'
+        && (previousRoute.initialTab !== 'expenses' || previousRoute.drawerOpen)
+      ) {
+        const expensesRoute = {
+          ...previousRoute,
+          initialTab: 'expenses',
+          drawerOpen: false,
+        };
+        window.history.pushState({ roomSplitRoute: expensesRoute }, '', getRouteUrl(expensesRoute));
+        applyRoute(expensesRoute);
         return;
       }
 
-      applyRoute({ view: 'dashboard', dashboardTab: 'groups' });
+      if (destinationRoute) {
+        applyRoute(destinationRoute);
+        return;
+      }
+
+      const dashboardRoute = { view: 'dashboard', dashboardTab: 'groups' };
+      applyRoute(dashboardRoute);
       window.history.pushState(sentinelState, '', '/');
     };
 
@@ -561,6 +595,34 @@ export default function App() {
           key={`${activeGroup.id}:${currentGroupInitialTab}`}
           group={activeGroup}
           initialTab={currentGroupInitialTab}
+          initialDrawerOpen={currentGroupDrawerOpen}
+          onGroupTabChange={(tab, { replace = false } = {}) => {
+            navigateTo({
+              view: 'group',
+              groupId: activeGroup.id,
+              groupName: activeGroup.name,
+              initialTab: tab,
+              drawerOpen: false,
+            }, { replace });
+          }}
+          onOpenRoomOptions={() => {
+            navigateTo({
+              view: 'group',
+              groupId: activeGroup.id,
+              groupName: activeGroup.name,
+              initialTab: 'expenses',
+              drawerOpen: true,
+            }, { replace: currentGroupInitialTab !== 'expenses' });
+          }}
+          onCloseRoomOptions={() => {
+            navigateTo({
+              view: 'group',
+              groupId: activeGroup.id,
+              groupName: activeGroup.name,
+              initialTab: currentGroupInitialTab,
+              drawerOpen: false,
+            }, { replace: true });
+          }}
           onActiveChatChange={setActiveChatGroupId}
           groups={groups}
           expenses={expenses.filter((expense) => expense.groupId === activeGroup.id)}

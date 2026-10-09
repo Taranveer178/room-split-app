@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RoomSplit</string>
+    <string name="title_activity_main">RoomSplit</string>
+    <string name="package_name">com.taranveer.roomsplit</string>
+    <string name="custom_url_scheme">com.taranveer.roomsplit</string>
+</resources>
