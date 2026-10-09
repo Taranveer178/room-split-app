@@ -1,8 +1,7 @@
 // api/send-push.js
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-const admin = require('firebase-admin');
+import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 function formatPrivateKey(key) {
   if (!key) return undefined;
@@ -14,8 +13,8 @@ function formatPrivateKey(key) {
 }
 
 function initAdmin() {
-  if (admin.apps && admin.apps.length > 0) {
-    return admin.app();
+  if (getApps().length > 0) {
+    return getApp();
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -28,8 +27,8 @@ function initAdmin() {
     );
   }
 
-  return admin.initializeApp({
-    credential: admin.credential.cert({
+  return initializeApp({
+    credential: cert({
       projectId,
       clientEmail,
       privateKey,
@@ -71,8 +70,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = admin.firestore();
-    const messaging = admin.messaging();
+    const db = getFirestore();
+    const messaging = getMessaging();
 
     const userDoc = await db.collection('users').doc(recipientId).get();
     const fcmTokens = userDoc.data()?.fcmTokens || [];
@@ -119,7 +118,7 @@ export default async function handler(req, res) {
 
     if (deadTokens.length > 0) {
       await db.collection('users').doc(recipientId).update({
-        fcmTokens: admin.firestore.FieldValue.arrayRemove(...deadTokens),
+        fcmTokens: FieldValue.arrayRemove(...deadTokens),
       });
     }
 
