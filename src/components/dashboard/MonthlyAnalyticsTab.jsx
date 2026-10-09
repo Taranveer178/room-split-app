@@ -5,7 +5,6 @@ import {
   ArrowUpRight, ArrowDownLeft, PieChart, Receipt,
   Utensils, Car, Home, ShoppingBag, Zap, HelpCircle, X, CalendarDays
 } from 'lucide-react';
-import { useBackHandler } from '../../utils/backNavigation';
 
 const CATEGORY_META = {
   Food: {
@@ -60,11 +59,6 @@ export default function MonthlyAnalyticsTab({ user, expenses = [], groups = [] }
   // Default to current year and month (YYYY-MM)
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedBreakdown, setSelectedBreakdown] = useState(null);
-
-  useBackHandler(Boolean(selectedBreakdown), () => {
-    setSelectedBreakdown(null);
-    return true;
-  }, 100);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();

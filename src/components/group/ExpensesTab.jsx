@@ -6,7 +6,6 @@ import {
   Utensils, Car, Home, ShoppingBag, Zap, IndianRupee
 } from 'lucide-react';
 import { Button } from '../common/UI';
-import { useBackHandler } from '../../utils/backNavigation';
 
 // Professional category styling with modern Lucide SVGs
 const getCategoryMeta = (category = '') => {
@@ -47,12 +46,6 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
   const [selectedIds, setSelectedIds] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [detailExpense, setDetailExpense] = useState(null);
-
-  useBackHandler(showConfirmModal || Boolean(detailExpense), () => {
-    if (showConfirmModal) setShowConfirmModal(false);
-    else setDetailExpense(null);
-    return true;
-  }, 100);
 
   const uniquePayers = Array.from(new Set(expenses.map(e => e.paidBy).filter(Boolean)));
 

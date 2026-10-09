@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, Camera, KeyRound, ScanLine, X } from 'lucide-react';
 import QrScanner from 'qr-scanner';
 import { Button } from '../common/UI';
-import { useBackHandler } from '../../utils/backNavigation';
 
 const extractInviteCode = (value) => {
   try {
@@ -20,11 +19,6 @@ export default function JoinGroupModal({ user, groups, onUpdateGroup, initialCod
   const [isScanning, setIsScanning] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const videoRef = useRef(null);
-
-  useBackHandler(isScanning, () => {
-    setIsScanning(false);
-    return true;
-  }, 100);
 
   useEffect(() => {
     if (!isScanning || !videoRef.current) return undefined;

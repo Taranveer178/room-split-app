@@ -21,7 +21,6 @@ import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
 import AdminPanel from './components/admin/AdminPanel';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
-import { handleAppBack } from './utils/backNavigation';
 
 const getGroupSlug = (name, fallback = 'group') => {
   const slug = name
@@ -101,10 +100,8 @@ export default function App() {
   );
   const [toast, setToast] = useState(null);
   const historyInitializedRef = useRef(false);
-  const currentRouteRef = useRef(initialRoute);
 
   const applyRoute = (route) => {
-    currentRouteRef.current = route;
     setCurrentView(route.view);
     setCurrentGroupRoute(route.groupId || route.groupSlug || null);
     if (route.view === 'dashboard') setDashboardTab(route.dashboardTab || 'groups');
@@ -133,12 +130,6 @@ export default function App() {
     }
 
     const handlePopState = (event) => {
-      if (handleAppBack()) {
-        const route = currentRouteRef.current;
-        window.history.pushState({ roomSplitRoute: route }, '', getRouteUrl(route));
-        return;
-      }
-
       if (event.state?.roomSplitRoute) {
         applyRoute(event.state.roomSplitRoute);
         return;
