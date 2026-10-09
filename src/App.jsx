@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
   collection,
@@ -125,6 +125,11 @@ export default function App() {
   );
   const historyInitializedRef = useRef(false);
   const currentRouteRef = useRef(initialRoute);
+  const activeUser = users.find((user) => user.id === activeUserId);
+  const mutedGroupIds = useMemo(
+    () => (Array.isArray(activeUser?.mutedGroupIds) ? activeUser.mutedGroupIds : []),
+    [activeUser]
+  );
   const joinedGroupIds = groups
     .filter((group) => activeUserId && group.members?.includes(activeUserId))
     .map((group) => group.id)
@@ -302,7 +307,8 @@ export default function App() {
   useEffect(() => {
     if (!db || !activeUserId || !joinedGroupIds) return undefined;
 
-    const unsubscribers = joinedGroupIds.split(',').map((groupId) => {
+    const mutedGroupIdSet = new Set(mutedGroupIds);
+    const unsubscribers = joinedGroupIds.split(',').filter((groupId) => !mutedGroupIdSet.has(groupId)).map((groupId) => {
       let hasBaselineSnapshot = false;
       return onSnapshot(
         query(collection(db, 'messages'), where('groupId', '==', groupId)),
@@ -332,7 +338,7 @@ export default function App() {
     });
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeChatGroupId, activeUserId, joinedGroupIds]);
+  }, [activeChatGroupId, activeUserId, joinedGroupIds, mutedGroupIds]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -368,6 +374,7 @@ export default function App() {
   const updateUser = async (userId, updates) => {
     if (db) {
       await setDoc(doc(db, 'users', userId), updates, { merge: true });
+      if (incomingChat && updates.mutedGroupIds?.includes(incomingChat.groupId)) setIncomingChat(null);
       return;
     }
     setUsers((previous) => {
@@ -375,18 +382,23 @@ export default function App() {
       localStorage.setItem('rs_users', JSON.stringify(next));
       return next;
     });
+    if (incomingChat && updates.mutedGroupIds?.includes(incomingChat.groupId)) setIncomingChat(null);
   };
 
   const saveNotifications = async (newNotifications) => {
-    if (!newNotifications.length) return;
+    const deliverableNotifications = newNotifications.filter((notification) => {
+      const recipient = users.find((user) => user.id === notification.recipientId);
+      return !notification.groupId || !recipient?.mutedGroupIds?.includes(notification.groupId);
+    });
+    if (!deliverableNotifications.length) return;
     if (db) {
-      await Promise.all(newNotifications.map((notification) => (
+      await Promise.all(deliverableNotifications.map((notification) => (
         setDoc(doc(db, 'notifications', notification.id), notification)
       )));
       return;
     }
     setNotifications((previous) => {
-      const next = [...previous, ...newNotifications];
+      const next = [...previous, ...deliverableNotifications];
       localStorage.setItem('rs_notifications', JSON.stringify(next));
       return next;
     });
@@ -508,7 +520,6 @@ export default function App() {
 
   };
 
-  const activeUser = users.find((user) => user.id === activeUserId);
   const activeGroup = groups.find((group) => (
     group.id === currentGroupRoute
     || getGroupSlug(group.name, group.id) === currentGroupRoute
@@ -516,6 +527,7 @@ export default function App() {
   const visibleNotifications = notifications.filter((notification) => {
     const timestamp = getNotificationTimestamp(notification.createdAt);
     return notification.recipientId === activeUserId
+      && (!notification.groupId || !mutedGroupIds.includes(notification.groupId))
       && (timestamp === null || timestamp >= notificationCutoff);
   });
 
@@ -579,6 +591,7 @@ export default function App() {
           onMarkNotificationsRead={markNotificationsRead}
           onClearNotifications={clearNotifications}
           onTabChange={(tab) => navigateTo({ view: 'dashboard', dashboardTab: tab })}
+          showToast={showToast}
         />
       ) : currentView === 'create_group' ? (
         <CreateGroupModal user={activeUser} onSaveGroup={saveGroup} onBack={goBack} showToast={showToast} />

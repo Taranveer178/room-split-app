@@ -17,12 +17,14 @@ const extractInviteCode = (value) => {
 export default function JoinGroupModal({ user, groups, onUpdateGroup, initialCode = '', onBack, showToast }) {
   const [code, setCode] = useState(initialCode.toUpperCase());
   const [isScanning, setIsScanning] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const videoRef = useRef(null);
 
   useEffect(() => {
     if (!isScanning || !videoRef.current) return undefined;
     let isMounted = true;
+    setIsCameraReady(false);
     const scanner = new QrScanner(videoRef.current, (result) => {
       const scannedCode = extractInviteCode(typeof result === 'string' ? result : result.data);
       if (scannedCode.length < 3) {
@@ -122,7 +124,22 @@ export default function JoinGroupModal({ user, groups, onUpdateGroup, initialCod
             <h2 id="scan-group-invite-title" className="text-base font-extrabold text-slate-900">Scan a group QR code</h2>
             <p className="mb-4 mt-1 text-xs text-slate-500">Place the QR code inside the frame to join.</p>
             <div className="relative overflow-hidden rounded-2xl bg-slate-950">
-              <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
+              <video
+                ref={videoRef}
+                className="aspect-square w-full bg-slate-950 object-cover"
+                autoPlay
+                muted
+                playsInline
+                controls={false}
+                disablePictureInPicture
+                onPlaying={() => setIsCameraReady(true)}
+              />
+              {!isCameraReady && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 text-white" role="status" aria-live="polite">
+                  <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span className="text-sm font-medium">Opening camera…</span>
+                </div>
+              )}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="relative h-[68%] w-[68%] rounded-2xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(15,23,42,0.22)]">
                   <span className="absolute -left-0.5 -top-0.5 h-5 w-5 rounded-tl-lg border-l-4 border-t-4 border-indigo-400" />

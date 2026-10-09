@@ -74,7 +74,12 @@ export default async function handler(req, res) {
     const messaging = getMessaging();
 
     const userDoc = await db.collection('users').doc(recipientId).get();
-    const fcmTokens = userDoc.data()?.fcmTokens || [];
+    const user = userDoc.data();
+    if (groupId && Array.isArray(user?.mutedGroupIds) && user.mutedGroupIds.includes(groupId)) {
+      return res.status(200).json({ success: true, muted: true, count: 0 });
+    }
+
+    const fcmTokens = user?.fcmTokens || [];
 
     if (!fcmTokens.length) {
       return res.status(200).json({ message: 'No registered device tokens found' });

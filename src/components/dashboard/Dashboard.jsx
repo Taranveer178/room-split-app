@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Plus, UserPlus, Users, Download, ChevronRight, LayoutDashboard, Archive, ArchiveRestore, Pin, PinOff } from 'lucide-react';
+import { LogOut, Plus, UserPlus, Users, Download, ChevronRight, LayoutDashboard, Archive, ArchiveRestore, Pin, PinOff, Bell, BellOff } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import PrimaryNav from '../common/PrimaryNav';
 import { requestNotificationPermission } from '../../utils/notifications';
@@ -14,6 +14,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
   const [showArchivedGroups, setShowArchivedGroups] = useState(false);
   const pinnedGroupIds = user?.pinnedGroupIds || [];
   const archivedGroupIds = user?.archivedGroupIds || [];
+  const mutedGroupIds = user?.mutedGroupIds || [];
   
   // Animation state for smooth tab transitions
   const [isAnimating, setIsAnimating] = useState(false);
@@ -255,6 +256,19 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
+                              updateGroupPreference(group.id, 'mutedGroupIds', !mutedGroupIds.includes(group.id));
+                            }}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${mutedGroupIds.includes(group.id) ? 'bg-amber-50 text-amber-700' : 'text-slate-400 hover:bg-amber-50 hover:text-amber-700'}`}
+                            aria-label={mutedGroupIds.includes(group.id) ? `Unmute ${group.name}` : `Mute ${group.name}`}
+                            aria-pressed={mutedGroupIds.includes(group.id)}
+                            title={mutedGroupIds.includes(group.id) ? 'Unmute notifications' : 'Mute notifications'}
+                          >
+                            {mutedGroupIds.includes(group.id) ? <BellOff size={17} /> : <Bell size={17} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
                               updateGroupPreference(group.id, 'pinnedGroupIds', !pinnedGroupIds.includes(group.id));
                             }}
                             className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${pinnedGroupIds.includes(group.id) ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-700'}`}
@@ -275,9 +289,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
                           >
                             {archivedGroupIds.includes(group.id) ? <ArchiveRestore size={17} /> : <Archive size={17} />}
                           </button>
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                            <ChevronRight size={18} className="sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
-                          </div>
+                          
                         </div>
                       </div>
                     </div>
