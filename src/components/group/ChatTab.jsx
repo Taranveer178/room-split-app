@@ -28,6 +28,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { triggerPushNotification } from '../../utils/notifications';
 
 const EMOJI_CATEGORIES = {
   Recent: ['😀', '😂', '🥰', '😍', '😎', '😭', '😅', '🤔', '🙌', '👏', '👍', '👎', '🙏', '❤️', '🔥', '🎉', '✨', '💸', '🍕', '☕', '🏠', '✅', '❌'],
@@ -242,11 +243,14 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         deletedFor: []
       });
 
-      if (Notification.permission === 'granted') {
-        new Notification(`New message in ${group.name}`, {
-          body: `${currentUser.username}: ${cleanText}`,
-          icon: '/roomsplit-icon.webp'
-        });
+      const otherMembers = (group.members || []).filter((id) => id !== currentUser.id);
+      for (const memberId of otherMembers) {
+        triggerPushNotification({
+          recipientId: memberId,
+          title: `Message in ${group.name || 'Group'}`,
+          message: `${currentUser.username || 'A member'}: ${cleanText}`,
+          groupId: group.id,
+        }).catch((err) => console.warn('Chat push error:', err));
       }
     } catch (err) {
       console.error("Error sending message:", err);

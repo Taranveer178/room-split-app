@@ -84,6 +84,23 @@ export default async function handler(req, res) {
     const response = await messaging.sendEachForMulticast({
       notification: { title, body: message },
       data: { groupId, url: '/' },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'default',
+          sound: 'default',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            alert: { title, body: message },
+          },
+        },
+      },
       tokens: fcmTokens,
     });
 

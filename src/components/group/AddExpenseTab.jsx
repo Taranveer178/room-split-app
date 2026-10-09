@@ -12,6 +12,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { CATEGORIES, PAYMENT_METHODS } from '../../utils/constants';
+import { triggerPushNotification } from '../../utils/notifications';
 import { Button, Input } from '../common/UI';
 
 export default function AddExpenseTab({
@@ -127,6 +128,14 @@ export default function AddExpenseTab({
 
         if (recipientNotifications.length > 0) {
           await onSendNotification(recipientNotifications);
+          for (const notif of recipientNotifications) {
+            triggerPushNotification({
+              recipientId: notif.recipientId,
+              title: `New Expense in ${group.name || 'Group'}`,
+              message: notif.message,
+              groupId: group.id,
+            }).catch((err) => console.warn('Expense push trigger failed:', err));
+          }
         }
       }
 
