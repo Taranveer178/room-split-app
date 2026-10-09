@@ -14,6 +14,8 @@ import ChatTab from './ChatTab';
 
 export default function GroupView({ 
   group, 
+  initialTab = 'expenses',
+  onActiveChatChange,
   groups = [],
   expenses, 
   onSaveExpense, 
@@ -27,7 +29,7 @@ export default function GroupView({
   onNavigateDashboard, 
   showToast 
 }) {
-  const [activeTab, setActiveTab] = useState('expenses');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isInviteCopied, setIsInviteCopied] = useState(false);
@@ -45,6 +47,11 @@ export default function GroupView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    onActiveChatChange?.(activeTab === 'chat' ? group.id : null);
+    return () => onActiveChatChange?.(null);
+  }, [activeTab, group.id, onActiveChatChange]);
 
   const handleTabSelect = (tab) => {
     setActiveTab(tab);
@@ -280,7 +287,7 @@ export default function GroupView({
       {/* ======================================================== */}
       {/* SLIDE-OVER DRAWER / SIDEBAR (Settings, Room Info, Roster)*/}
       {/* ======================================================== */}
-      {isDrawerOpen && (
+      {isDrawerOpen && createPortal(
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           
           {/* Backdrop Click */}
@@ -466,7 +473,8 @@ export default function GroupView({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* PrimaryNav component preserved */}

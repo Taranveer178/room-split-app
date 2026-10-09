@@ -4,7 +4,9 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  query,
   setDoc,
+  where,
 } from 'firebase/firestore';
 import { calculateSettlements, GROUP_DELETE_BALANCE_TOLERANCE } from './utils/settlement';
 import { auth, db, hasFirebase, signInAnonymously } from './firebase';
@@ -19,6 +21,7 @@ import CreateGroupModal from './components/dashboard/CreateGroupModal';
 import JoinGroupModal from './components/dashboard/JoinGroupModal';
 import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
+import IncomingChatAlert from './components/common/IncomingChatAlert';
 import AdminPanel from './components/admin/AdminPanel';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
@@ -70,6 +73,14 @@ const getRouteUrl = (route) => {
     : '/';
 };
 
+const getNotificationTimestamp = (value) => {
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  if (typeof value === 'number') return value;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -98,12 +109,30 @@ export default function App() {
   const [currentGroupRoute, setCurrentGroupRoute] = useState(
     initialRoute.groupId || initialRoute.groupSlug || null
   );
+  const [currentGroupInitialTab, setCurrentGroupInitialTab] = useState('expenses');
   const [toast, setToast] = useState(null);
+  const [incomingChat, setIncomingChat] = useState(null);
+  const [activeChatGroupId, setActiveChatGroupId] = useState(null);
+  const [notificationCutoff, setNotificationCutoff] = useState(
+    () => Date.now() - 7 * 24 * 60 * 60 * 1000
+  );
   const historyInitializedRef = useRef(false);
+  const joinedGroupIds = groups
+    .filter((group) => activeUserId && group.members?.includes(activeUserId))
+    .map((group) => group.id)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    const refreshCutoff = () => setNotificationCutoff(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const interval = window.setInterval(refreshCutoff, 60 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const applyRoute = (route) => {
     setCurrentView(route.view);
     setCurrentGroupRoute(route.groupId || route.groupSlug || null);
+    if (route.view === 'group') setCurrentGroupInitialTab(route.initialTab || 'expenses');
     if (route.view === 'dashboard') setDashboardTab(route.dashboardTab || 'groups');
   };
 
@@ -208,6 +237,67 @@ export default function App() {
     setupAuthAndSync();
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
   }, []);
+
+  useEffect(() => {
+    if (!activeUserId) return undefined;
+    const expiredIds = new Set(notifications
+      .filter((notification) => {
+        const timestamp = getNotificationTimestamp(notification.createdAt);
+        return notification.recipientId === activeUserId
+          && timestamp !== null
+          && timestamp < notificationCutoff;
+      })
+      .map((notification) => notification.id));
+    if (!expiredIds.size) return undefined;
+
+    if (db) {
+      expiredIds.forEach((notificationId) => {
+        deleteDoc(doc(db, 'notifications', notificationId)).catch((error) => {
+          console.error('Could not remove expired notification:', error);
+        });
+      });
+      return undefined;
+    }
+
+    const retained = notifications.filter((notification) => !expiredIds.has(notification.id));
+    localStorage.setItem('rs_notifications', JSON.stringify(retained));
+    return undefined;
+  }, [activeUserId, notificationCutoff, notifications]);
+
+  useEffect(() => {
+    if (!db || !activeUserId || !joinedGroupIds) return undefined;
+
+    const unsubscribers = joinedGroupIds.split(',').map((groupId) => {
+      let hasBaselineSnapshot = false;
+      return onSnapshot(
+        query(collection(db, 'messages'), where('groupId', '==', groupId)),
+        { includeMetadataChanges: true },
+        (snapshot) => {
+          if (!hasBaselineSnapshot) {
+            if (!snapshot.metadata.fromCache) hasBaselineSnapshot = true;
+            return;
+          }
+          if (document.visibilityState !== 'visible') return;
+
+          const newMessage = snapshot.docChanges()
+            .filter((change) => change.type === 'added')
+            .map((change) => ({ id: change.doc.id, ...change.doc.data() }))
+            .filter((message) => (
+              message.senderId !== activeUserId
+              && activeChatGroupId !== groupId
+              && !message.isDeletedForEveryone
+              && !message.deletedFor?.includes(activeUserId)
+            ))
+            .sort((first, second) => (second.timestamp || 0) - (first.timestamp || 0))[0];
+
+          if (newMessage) setIncomingChat(newMessage);
+        },
+        (error) => console.error('Incoming chat listener error:', error)
+      );
+    });
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [activeChatGroupId, activeUserId, joinedGroupIds]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -388,6 +478,11 @@ export default function App() {
     group.id === currentGroupRoute
     || getGroupSlug(group.name, group.id) === currentGroupRoute
   ));
+  const visibleNotifications = notifications.filter((notification) => {
+    const timestamp = getNotificationTimestamp(notification.createdAt);
+    return notification.recipientId === activeUserId
+      && (timestamp === null || timestamp >= notificationCutoff);
+  });
 
   if (window.location.pathname === '/admin') {
     return <AdminPanel />;
@@ -407,6 +502,27 @@ export default function App() {
   return (
     <div className="w-full h-[100dvh] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
       <Toast toast={toast} />
+      {incomingChat && (
+        <IncomingChatAlert
+          key={incomingChat.id}
+          message={incomingChat}
+          sender={users.find((user) => user.id === incomingChat.senderId)}
+          group={groups.find((group) => group.id === incomingChat.groupId)}
+          onClose={() => setIncomingChat(null)}
+          onOpen={() => {
+            const incomingGroup = groups.find((group) => group.id === incomingChat.groupId);
+            setIncomingChat(null);
+            if (incomingGroup) {
+              navigateTo({
+                view: 'group',
+                groupId: incomingGroup.id,
+                groupName: incomingGroup.name,
+                initialTab: 'chat',
+              });
+            }
+          }}
+        />
+      )}
       {!activeUser ? (
         <AuthScreen users={users} onSaveUser={saveUser} onLogin={handleLogin} />
       ) : currentView === 'dashboard' ? (
@@ -424,7 +540,7 @@ export default function App() {
           onCreateGroup={() => navigateTo({ view: 'create_group' })}
           onJoinGroup={() => navigateTo({ view: 'join_group' })}
           onUpdateUser={updateUser}
-          notifications={notifications.filter((notification) => notification.recipientId === activeUser.id)}
+          notifications={visibleNotifications}
           onMarkNotificationsRead={markNotificationsRead}
           onClearNotifications={clearNotifications}
           onTabChange={(tab) => navigateTo({ view: 'dashboard', dashboardTab: tab })}
@@ -442,7 +558,10 @@ export default function App() {
         />
       ) : currentView === 'group' && activeGroup ? (
         <GroupView
+          key={`${activeGroup.id}:${currentGroupInitialTab}`}
           group={activeGroup}
+          initialTab={currentGroupInitialTab}
+          onActiveChatChange={setActiveChatGroupId}
           groups={groups}
           expenses={expenses.filter((expense) => expense.groupId === activeGroup.id)}
           onSaveExpense={saveExpense}

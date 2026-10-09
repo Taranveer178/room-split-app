@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   CheckCircle2, Send, Copy, AlertTriangle, 
   CheckCheck, Sparkles, ArrowRightLeft, 
@@ -529,7 +530,7 @@ export default function BalancesTab({
       </div>
 
       {/* MODAL: Breakdown Receipt (Liquid Glass Modal, No slider) */}
-      {breakdownData && (
+      {breakdownData && createPortal(
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="relative overflow-hidden w-full max-w-sm rounded-[32px] p-6 bg-white/85 backdrop-blur-2xl border border-white/60 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200">
             
@@ -578,11 +579,12 @@ export default function BalancesTab({
               Done
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL: Confirm Payment Received (Liquid Glass Modal) */}
-      {confirmSettlement && (
+      {confirmSettlement && createPortal(
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="relative overflow-hidden w-full max-w-xs rounded-[32px] p-6 bg-white/85 backdrop-blur-2xl border border-white/60 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200 text-center">
             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-3.5 shadow-inner">
@@ -610,7 +612,8 @@ export default function BalancesTab({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

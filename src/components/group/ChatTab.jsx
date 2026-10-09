@@ -712,7 +712,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       )}
 
       {/* Delete Confirmation Sheet (3 options: Delete for Me, Delete for Everyone, Cancel) */}
-      {deleteDialogMessage && (
+      {deleteDialogMessage && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-xs rounded-3xl p-5 bg-white shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-150">
             <h3 className="text-sm font-extrabold text-slate-900 mb-1">Delete message?</h3>
@@ -755,7 +755,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {shareDialogMessage && createPortal(
@@ -1015,7 +1016,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       </div>
 
       {/* Clear Chat Confirmation Modal */}
-      {showClearConfirm && (
+      {showClearConfirm && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-xs rounded-3xl p-5 bg-white shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-150">
             <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -1045,11 +1046,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Full-Screen Image Lightbox Modal */}
-      {selectedImage && (
+      {selectedImage && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
           role="dialog"
@@ -1086,7 +1088,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
           >
             <Download size={15} /> Download original
           </a>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Receipt, Trash2, Check, AlertCircle, X, 
   Calendar, CreditCard, User, Users, ChevronRight, 
@@ -350,7 +351,7 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
       )}
 
       {/* Liquid Glass Modal: Detailed Breakdown */}
-      {detailExpense && (
+      {detailExpense && createPortal(
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="relative overflow-hidden w-full max-w-sm rounded-[32px] p-6 bg-white/85 backdrop-blur-2xl border border-white/60 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200">
             {/* Ambient liquid backdrop highlights inside card */}
@@ -484,7 +485,8 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
               Done
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Floating Bottom Selection Bar (Lifted by an additional 20px: bottom-[54px]) */}
@@ -518,7 +520,7 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
       )}
 
       {/* Confirmation Liquid Glass Modal */}
-      {showConfirmModal && (
+      {showConfirmModal && createPortal(
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white/85 backdrop-blur-2xl rounded-[32px] max-w-xs w-full p-6 shadow-2xl border border-white/60 animate-in zoom-in-95 duration-150 text-center">
             <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-3.5 border border-rose-100 shadow-inner">
@@ -545,7 +547,8 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

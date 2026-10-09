@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   AlertTriangle, 
   Copy, 
@@ -422,7 +423,7 @@ export default function MembersTab({
       )}
 
       {/* Invite Options Modal (Liquid Glass) */}
-      {isInviteOpen && (
+      {isInviteOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-sm rounded-[32px] p-6 bg-white/95 backdrop-blur-2xl border border-white/70 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.25)] animate-in zoom-in-95 duration-200">
             
@@ -515,11 +516,12 @@ export default function MembersTab({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* QR Code Presentation Modal (No Download Button) */}
-      {showQrModal && (
+      {showQrModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-xs rounded-[32px] p-6 bg-white/95 backdrop-blur-2xl border border-white/70 shadow-2xl text-center animate-in zoom-in-95 duration-200">
             <button 
@@ -550,7 +552,8 @@ export default function MembersTab({
               Room Code: <span className="font-mono font-bold text-slate-800">{group.inviteCode}</span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
