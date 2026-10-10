@@ -321,7 +321,7 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
 
       {/* --- FLOATING LIQUID GLASS PILL (Mobile Bottom Nav) --- */}
       {/* Centered on mobile via left-1/2, max width controlled so it doesn't break */}
-      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-[26rem] -translate-x-1/2 md:static md:order-1 md:h-full md:w-16 md:max-w-none md:translate-x-0 md:flex-shrink-0 lg:w-20">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[100] w-[calc(100%-2rem)] max-w-[26rem] -translate-x-1/2 md:static md:order-1 md:h-full md:w-60 md:max-w-none md:translate-x-0 md:flex-shrink-0 lg:w-64">
         
         {/* 
           Glass Wrapper: Added bg-slate-900/10 for dark/blue tint, 

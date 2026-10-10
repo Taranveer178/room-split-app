@@ -7,14 +7,17 @@ import {
   MessageCircle, 
   Send, 
   Smile, 
-  X,
-  FileText,
-  Trash2,
-  CheckCheck,
-  Ban,
-  Copy,
-  Share2,
-  Users
+  X, 
+  FileText, 
+  Trash2, 
+  CheckCheck, 
+  Ban, 
+  Copy, 
+  Share2, 
+  Users, 
+  CornerUpRight,
+  CheckSquare,
+  Check
 } from 'lucide-react';
 import { 
   collection, 
@@ -22,10 +25,12 @@ import {
   where, 
   onSnapshot, 
   addDoc, 
-  updateDoc,
-  doc,
-  arrayUnion,
-  serverTimestamp 
+  updateDoc, 
+  doc, 
+  arrayUnion, 
+  runTransaction,
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { triggerPushNotification } from '../../utils/notifications';
@@ -55,7 +60,19 @@ const POPULAR_GIFS = [
   { id: '8', title: 'Deal Done', url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
 ];
 
+const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+const MAX_BATCH_MESSAGES = 500;
+
 const getTimestamp = () => Date.now();
+
+const isOnlyEmojis = (str) => {
+  if (!str) return false;
+  const trimmed = str.trim();
+  const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji_Modifier_Base}|\uFE0F|\u200D|\s)+$/u;
+  if (!emojiRegex.test(trimmed)) return false;
+  const characters = Array.from(trimmed.replace(/\s+/g, ''));
+  return characters.length >= 1 && characters.length <= 4;
+};
 
 export default function ChatTab({ group, groups = [], currentUser, users, showToast }) {
   const [messages, setMessages] = useState([]);
@@ -67,16 +84,20 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [uploading, setUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
 
-  // Tap-and-hold popup & delete states
-  const [activeContextMenu, setActiveContextMenu] = useState(null); // { message, x, y, isMe }
-  const [deleteDialogMessage, setDeleteDialogMessage] = useState(null);
+  // Context Menu State
+  const [activeContextMenu, setActiveContextMenu] = useState(null);
+  const [deleteDialogMessages, setDeleteDialogMessages] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [deletingMessage, setDeletingMessage] = useState(false);
-  const [shareDialogMessage, setShareDialogMessage] = useState(null);
+  const [shareDialogMessages, setShareDialogMessages] = useState(null);
   const [shareError, setShareError] = useState('');
   const [sharingGroupId, setSharingGroupId] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  // WhatsApp-style Multi-Selection Mode
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
 
   const bottomRef = useRef(null);
   const messageFeedRef = useRef(null);
@@ -181,15 +202,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedImage]);
 
-  // Close context menu on outside click
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (activeContextMenu) setActiveContextMenu(null);
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, [activeContextMenu]);
-
   const visibleMessages = useMemo(() => {
     return messages.filter(msg => {
       if (msg.deletedFor && Array.isArray(msg.deletedFor) && msg.deletedFor.includes(currentUser.id)) {
@@ -199,16 +211,37 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     });
   }, [messages, currentUser.id]);
 
-  // Press & Hold handling
+  // Dynamic Context Menu Positioning
+  const triggerContextMenu = (targetEl, msg, isMe) => {
+    if (msg.isDeletedForEveryone || isSelectMode) return;
+    const rect = targetEl.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    const popupWidth = 256;
+    const menuEstimatedHeight = 290;
+
+    const spaceBelow = windowHeight - rect.bottom;
+    const placeAbove = spaceBelow < menuEstimatedHeight && rect.top > menuEstimatedHeight;
+
+    let xPos = isMe ? (rect.right - popupWidth) : rect.left;
+    xPos = Math.max(16, Math.min(xPos, windowWidth - popupWidth - 16));
+
+    setActiveContextMenu({
+      message: msg,
+      isMe,
+      rect,
+      position: placeAbove ? 'above' : 'below',
+      xPos
+    });
+  };
+
   const handleTouchStart = (event, msg, isMe) => {
-    if (msg.isDeletedForEveryone) return;
-    const touch = event.touches ? event.touches[0] : event;
-    const clientX = touch.clientX;
-    const clientY = touch.clientY;
+    if (msg.isDeletedForEveryone || isSelectMode) return;
+    const currentTarget = event.currentTarget;
 
     pressTimerRef.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate(40);
-      setActiveContextMenu({ message: msg, x: clientX, y: clientY, isMe });
+      triggerContextMenu(currentTarget, msg, isMe);
     }, 450);
   };
 
@@ -220,9 +253,54 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   };
 
   const handleContextMenu = (e, msg, isMe) => {
-    if (msg.isDeletedForEveryone) return;
+    if (msg.isDeletedForEveryone || isSelectMode) return;
     e.preventDefault();
-    setActiveContextMenu({ message: msg, x: e.clientX, y: e.clientY, isMe });
+    triggerContextMenu(e.currentTarget, msg, isMe);
+  };
+
+  const handleBubbleClick = (msg) => {
+    if (!isSelectMode || msg.isDeletedForEveryone) return;
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(msg.id)) {
+        next.delete(msg.id);
+      } else {
+        next.add(msg.id);
+      }
+      return next;
+    });
+  };
+
+  const startSelectMode = (initialMessage) => {
+    setActiveContextMenu(null);
+    setIsSelectMode(true);
+    setSelectedMessageIds(new Set([initialMessage.id]));
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+  };
+
+  // WhatsApp-style Reaction Handler
+  const handleToggleReaction = async (message, emoji) => {
+    if (!db || !message?.id || !currentUser?.id || message.isDeletedForEveryone) return;
+    setActiveContextMenu(null);
+    try {
+      const msgRef = doc(db, 'messages', message.id);
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(msgRef);
+        if (!snapshot.exists() || snapshot.data().isDeletedForEveryone) return;
+
+        const reactions = { ...(snapshot.data().reactions || {}) };
+        if (reactions[currentUser.id] === emoji) delete reactions[currentUser.id];
+        else reactions[currentUser.id] = emoji;
+        transaction.update(msgRef, { reactions });
+      });
+    } catch (err) {
+      console.error('Error toggling reaction:', err);
+      showToast?.('Could not save your reaction. Please try again.', 'error');
+    }
   };
 
   const handleSend = async (e) => {
@@ -240,7 +318,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         text: cleanText,
         timestamp: getTimestamp(),
         createdAt: serverTimestamp(),
-        deletedFor: []
+        deletedFor: [],
+        reactions: {}
       });
 
       const otherMembers = (group.members || []).filter((id) => id !== currentUser.id);
@@ -273,7 +352,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         type: 'sticker',
         timestamp: getTimestamp(),
         createdAt: serverTimestamp(),
-        deletedFor: []
+        deletedFor: [],
+        reactions: {}
       });
     } catch (error) {
       console.error('Error sending sticker:', error);
@@ -295,7 +375,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         attachmentData: gifUrl,
         timestamp: getTimestamp(),
         createdAt: serverTimestamp(),
-        deletedFor: []
+        deletedFor: [],
+        reactions: {}
       });
     } catch (error) {
       console.error('Error sending gif:', error);
@@ -303,13 +384,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     }
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
+  // Keyboard Sticker / GIF & File Upload Handler
+  const uploadFileBlob = async (file) => {
     if (!file || !db || uploading) return;
 
     setAttachmentError('');
-    const lowerName = file.name.toLowerCase();
+    const lowerName = file.name ? file.name.toLowerCase() : 'image.png';
     const isGif = file.type === 'image/gif' || lowerName.endsWith('.gif');
     const isImage = file.type.startsWith('image/') && !isGif;
     const isVideo = file.type.startsWith('video/');
@@ -321,11 +401,11 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       || file.type === 'text/csv';
 
     if (!isImage && !isGif && !isVideo && !isAudio && !isDocument) {
-      setAttachmentError('Choose an image, video, audio, PDF, Office, text, CSV, or ZIP file.');
+      setAttachmentError('Choose an image, video, audio, PDF, text, or file.');
       return;
     }
     if (!isImage && file.size > 450 * 1024) {
-      setAttachmentError('Files must be 450 KB or smaller with Firestore storage.');
+      setAttachmentError('Files must be 450 KB or smaller.');
       return;
     }
     if (isImage && file.size > 8 * 1024 * 1024) {
@@ -381,18 +461,43 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         senderName: currentUser.username,
         text: '',
         attachmentType,
-        attachmentName: file.name,
+        attachmentName: file.name || (isGif ? 'sticker.gif' : 'image.png'),
         attachmentMimeType: isImage ? 'image/jpeg' : file.type || 'application/octet-stream',
         attachmentData,
         timestamp: getTimestamp(),
         createdAt: serverTimestamp(),
-        deletedFor: []
+        deletedFor: [],
+        reactions: {}
       });
     } catch (error) {
       console.error('Error uploading chat attachment:', error);
-      setAttachmentError(error.message || 'Could not send this file. Please try again.');
+      setAttachmentError(error.message || 'Could not send this file.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) uploadFileBlob(file);
+  };
+
+  // Keyboard Gboard/iOS Sticker and GIF Paste Interceptor
+  const handleInputPaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        if (blob) {
+          uploadFileBlob(blob);
+          return;
+        }
+      }
     }
   };
 
@@ -400,93 +505,123 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     const textToCopy = msg.text || msg.attachmentName || '';
     if (textToCopy && navigator.clipboard) {
       navigator.clipboard.writeText(textToCopy);
+      showToast?.('Copied to clipboard');
     }
     setActiveContextMenu(null);
   };
 
-  const handleShareMessage = (msg) => {
-    setActiveContextMenu(null);
-    setShareError('');
-    setShareDialogMessage(msg);
-  };
-
-  const handleForwardMessage = async (destinationGroup) => {
-    if (!db || !shareDialogMessage || sharingGroupId) return;
+  const handleForwardMessages = async (destinationGroup) => {
+    if (!db || !shareDialogMessages?.length || sharingGroupId) return;
+    if (shareDialogMessages.length > MAX_BATCH_MESSAGES) {
+      setShareError(`You can share up to ${MAX_BATCH_MESSAGES} messages at a time.`);
+      return;
+    }
 
     setSharingGroupId(destinationGroup.id);
     setShareError('');
     try {
-      const message = shareDialogMessage;
-      const attachmentData = message.attachmentData || message.mediaData || null;
-      await addDoc(collection(db, 'messages'), {
-        groupId: destinationGroup.id,
-        senderId: currentUser.id,
-        senderName: currentUser.username,
-        text: message.text || '',
-        ...(message.type === 'sticker' ? { type: 'sticker' } : {}),
-        attachmentType: message.attachmentType || null,
-        attachmentName: message.attachmentName || null,
-        attachmentMimeType: message.attachmentMimeType || null,
-        attachmentData,
-        forwardedFromGroupName: group.name,
-        timestamp: getTimestamp(),
-        createdAt: serverTimestamp(),
-        deletedFor: []
-      });
-      setShareDialogMessage(null);
-      showToast?.(`Message shared to ${destinationGroup.name}.`);
+      const batch = writeBatch(db);
+      for (const message of shareDialogMessages) {
+        const attachmentData = message.attachmentData || message.mediaData || null;
+        const messageRef = doc(collection(db, 'messages'));
+        batch.set(messageRef, {
+          groupId: destinationGroup.id,
+          senderId: currentUser.id,
+          senderName: currentUser.username,
+          text: message.text || '',
+          ...(message.type === 'sticker' ? { type: 'sticker' } : {}),
+          attachmentType: message.attachmentType || null,
+          attachmentName: message.attachmentName || null,
+          attachmentMimeType: message.attachmentMimeType || null,
+          attachmentData,
+          forwardedFromGroupName: group.name,
+          timestamp: getTimestamp(),
+          createdAt: serverTimestamp(),
+          deletedFor: [],
+          reactions: {}
+        });
+      }
+      await batch.commit();
+      setShareDialogMessages(null);
+      exitSelectMode();
+      showToast?.(`${shareDialogMessages.length} message(s) shared to ${destinationGroup.name}.`);
     } catch (error) {
       console.error('Error sharing message to group:', error);
-      setShareError('Could not share this message. Please try again.');
+      setShareError('Could not share messages. Please try again.');
     } finally {
       setSharingGroupId(null);
     }
   };
 
-  const handleDeleteForMe = async (message) => {
+  const handleDeleteBatchForMe = async (messagesToDelete) => {
     if (deletingMessage) return;
-    if (!db || !message?.id) {
-      setDeleteError('Chat is unavailable. Please try again later.');
+    if (!db || !messagesToDelete?.length) {
+      setDeleteError('No messages selected.');
+      return;
+    }
+    if (messagesToDelete.length > MAX_BATCH_MESSAGES) {
+      setDeleteError(`You can delete up to ${MAX_BATCH_MESSAGES} messages at a time.`);
       return;
     }
     setDeletingMessage(true);
     setDeleteError('');
     try {
-      const msgRef = doc(db, 'messages', message.id);
-      await updateDoc(msgRef, {
-        deletedFor: arrayUnion(currentUser.id)
-      });
-      setDeleteDialogMessage(null);
+      const batch = writeBatch(db);
+      for (const message of messagesToDelete) {
+        const msgRef = doc(db, 'messages', message.id);
+        batch.update(msgRef, {
+          deletedFor: arrayUnion(currentUser.id)
+        });
+      }
+      await batch.commit();
+      setDeleteDialogMessages(null);
+      exitSelectMode();
     } catch (err) {
-      console.error('Error deleting message for me:', err);
-      setDeleteError('Could not delete this message for you. Please try again.');
+      console.error('Error deleting messages for me:', err);
+      setDeleteError('Could not delete selected messages. Please try again.');
     } finally {
       setDeletingMessage(false);
     }
   };
 
-  const handleDeleteForEveryone = async (message) => {
+  const handleDeleteBatchForEveryone = async (messagesToDelete) => {
     if (deletingMessage) return;
-    if (!db || !message?.id) {
-      setDeleteError('Chat is unavailable. Please try again later.');
+    if (!db || !messagesToDelete?.length) {
+      setDeleteError('No messages selected.');
+      return;
+    }
+    if (messagesToDelete.length > MAX_BATCH_MESSAGES) {
+      setDeleteError(`You can delete up to ${MAX_BATCH_MESSAGES} messages at a time.`);
       return;
     }
     setDeletingMessage(true);
     setDeleteError('');
     try {
-      const msgRef = doc(db, 'messages', message.id);
-      await updateDoc(msgRef, {
-        isDeletedForEveryone: true,
-        text: 'This message was deleted',
-        attachmentData: null,
-        mediaData: null,
-        attachmentType: null,
-        type: 'deleted'
-      });
-      setDeleteDialogMessage(null);
+      const batch = writeBatch(db);
+      const deletableMessages = messagesToDelete.filter(
+        (message) => message.senderId === currentUser.id || group.createdBy === currentUser.id
+      );
+      if (deletableMessages.length !== messagesToDelete.length) {
+        setDeleteError('You can only delete your own messages for everyone.');
+        return;
+      }
+      for (const message of deletableMessages) {
+        const msgRef = doc(db, 'messages', message.id);
+        batch.update(msgRef, {
+          isDeletedForEveryone: true,
+          text: 'This message was deleted',
+          attachmentData: null,
+          mediaData: null,
+          attachmentType: null,
+          type: 'deleted'
+        });
+      }
+      await batch.commit();
+      setDeleteDialogMessages(null);
+      exitSelectMode();
     } catch (err) {
-      console.error('Error deleting message for everyone:', err);
-      setDeleteError('Could not delete this message for everyone. Please try again.');
+      console.error('Error deleting messages for everyone:', err);
+      setDeleteError('Could not delete selected messages. Please try again.');
     } finally {
       setDeletingMessage(false);
     }
@@ -510,23 +645,84 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     }
   };
 
-  return (
-    <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden bg-slate-50/80 font-sans select-none">
-      
-      {/* Ambient background glows */}
-      <div className="absolute top-10 right-10 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-20 left-10 w-80 h-80 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+  const selectedMessages = useMemo(() => {
+    return visibleMessages.filter(
+      (message) => !message.isDeletedForEveryone && selectedMessageIds.has(message.id)
+    );
+  }, [visibleMessages, selectedMessageIds]);
 
-      {/* Discrete Floating Clear Chat Icon Button */}
-      {visibleMessages.length > 0 && (
-        <button
-          onClick={() => setShowClearConfirm(true)}
-          className="absolute top-3 right-4 z-20 p-2 rounded-full bg-white/75 hover:bg-white text-slate-400 hover:text-rose-600 border border-slate-200/60 shadow-xs backdrop-blur-md transition-all active:scale-90"
-          title="Clear Conversation"
-          aria-label="Clear Chat"
-        >
-          <Trash2 size={15} />
-        </button>
+  const deleteCandidates = deleteDialogMessages || selectedMessages;
+  const canDeleteAllForEveryone = useMemo(() => {
+    if (!deleteCandidates.length) return false;
+    return deleteCandidates.every(
+      (m) => m.senderId === currentUser.id || group.createdBy === currentUser.id
+    );
+  }, [deleteCandidates, currentUser.id, group.createdBy]);
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden bg-slate-100/60 font-sans select-none">
+      
+      {/* Background ambient lighting */}
+      <div className="absolute top-10 right-10 w-96 h-96 bg-sky-300/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 left-10 w-96 h-96 bg-blue-300/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* WhatsApp-Style Selection Mode Top Bar */}
+      {isSelectMode ? (
+        <div className="relative z-30 flex items-center justify-between px-4 py-2.5 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-sm animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={exitSelectMode}
+              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
+              title="Cancel Selection"
+            >
+              <X size={18} />
+            </button>
+            <span className="text-sm font-bold text-slate-800">
+              {selectedMessages.length} selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={selectedMessages.length === 0}
+              onClick={() => {
+                setShareError('');
+                setShareDialogMessages(selectedMessages);
+              }}
+              className="p-2 rounded-xl text-slate-600 hover:text-sky-600 hover:bg-sky-50 transition-all disabled:opacity-40"
+              title="Forward Selected"
+            >
+              <Share2 size={17} />
+            </button>
+
+            <button
+              type="button"
+              disabled={selectedMessages.length === 0}
+              onClick={() => {
+                setDeleteError('');
+                setDeleteDialogMessages(selectedMessages);
+              }}
+              className="p-2 rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-40"
+              title="Delete Selected"
+            >
+              <Trash2 size={17} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Floating Clear Chat Icon Button */
+        visibleMessages.length > 0 && (
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="absolute top-3 right-4 z-20 p-2 rounded-full bg-white/80 hover:bg-white text-slate-400 hover:text-rose-600 border border-slate-200/60 shadow-xs backdrop-blur-md transition-all active:scale-90"
+            title="Clear Conversation"
+            aria-label="Clear Chat"
+          >
+            <Trash2 size={15} />
+          </button>
+        )
       )}
 
       {/* Main WhatsApp-Style Message Feed */}
@@ -542,248 +738,375 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 relative z-10 scrollbar-hide [overflow-anchor:none]"
       >
         <div ref={messageContentRef} className="flow-root space-y-1">
-        {visibleMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className="w-16 h-16 rounded-3xl bg-white/80 backdrop-blur-md border border-white/80 text-blue-600 flex items-center justify-center mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <MessageCircle size={30} />
+          {visibleMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-6 pt-24">
+              <div className="w-16 h-16 rounded-3xl bg-white/80 backdrop-blur-md border border-white/80 text-sky-500 flex items-center justify-center mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <MessageCircle size={30} />
+              </div>
+              <p className="font-extrabold text-slate-800 text-base">No messages yet</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-[240px] leading-relaxed">
+                Chat, share receipts, notes, or coordinate room spending right here!
+              </p>
             </div>
-            <p className="font-extrabold text-slate-900 text-base">No messages yet</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-[240px] leading-relaxed">
-              Chat, drop grocery lists, receipts, or discuss room expenses in this space!
-            </p>
-          </div>
-        ) : (
-          visibleMessages.map((msg, index) => {
-            const isMe = msg.senderId === currentUser.id;
-            const sender = getUser(msg.senderId);
-            const msgDate = getMessageDate(msg);
-            const timeString = formatMessageTime(msgDate);
+          ) : (
+            visibleMessages.map((msg, index) => {
+              const isMe = msg.senderId === currentUser.id;
+              const sender = getUser(msg.senderId);
+              const msgDate = getMessageDate(msg);
+              const timeString = formatMessageTime(msgDate);
 
-            // Date divider check
-            const prevMsg = visibleMessages[index - 1];
-            const prevDate = prevMsg ? getMessageDate(prevMsg) : null;
-            const showDateDivider = !prevDate || prevDate.toDateString() !== msgDate.toDateString();
+              const prevMsg = visibleMessages[index - 1];
+              const prevDate = prevMsg ? getMessageDate(prevMsg) : null;
+              const showDateDivider = !prevDate || prevDate.toDateString() !== msgDate.toDateString();
 
-            // Sender grouping
-            const isFirstOfCluster = !prevMsg || prevMsg.senderId !== msg.senderId || showDateDivider;
-            const isDeleted = msg.isDeletedForEveryone;
+              const isFirstOfCluster = !prevMsg || prevMsg.senderId !== msg.senderId || showDateDivider;
+              const isDeleted = msg.isDeletedForEveryone;
+              const onlyEmoji = !isDeleted && !msg.attachmentData && !msg.mediaData && msg.type !== 'sticker' && isOnlyEmojis(msg.text);
 
-            return (
-              <div key={msg.id} className="w-full">
-                {/* Date Divider (WhatsApp style) */}
-                {showDateDivider && (
-                  <div className="flex justify-center my-3">
-                    <span className="px-3.5 py-1 text-[11px] font-bold text-slate-600 bg-white/90 backdrop-blur-md rounded-full shadow-2xs border border-slate-200/70 select-none">
-                      {getDateLabel(msgDate)}
-                    </span>
-                  </div>
-                )}
+              const isSelected = selectedMessageIds.has(msg.id) && !msg.isDeletedForEveryone;
 
-                {/* Message Bubble Row */}
-                <div 
-                  className={`flex items-end gap-1.5 my-1 ${isMe ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div 
-                    onTouchStart={(e) => handleTouchStart(e, msg, isMe)}
-                    onTouchEnd={handleTouchEnd}
-                    onMouseDown={(e) => handleTouchStart(e, msg, isMe)}
-                    onMouseUp={handleTouchEnd}
-                    onMouseLeave={handleTouchEnd}
-                    onContextMenu={(e) => handleContextMenu(e, msg, isMe)}
-                    className={`relative max-w-[85%] sm:max-w-[70%] rounded-2xl transition-all shadow-sm cursor-pointer select-none active:scale-[0.99] ${
-                      isDeleted
-                        ? 'bg-slate-100 text-slate-400 italic border border-slate-200/80 px-3.5 py-2'
-                        : isMe
-                          ? 'bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 text-white rounded-br-xs shadow-blue-500/15'
-                          : 'bg-white/95 backdrop-blur-md text-slate-800 border border-slate-200/80 rounded-bl-xs'
-                    }`}
-                  >
+              // Message Reactions Array
+              const reactionsMap = msg.reactions || {};
+              const reactionEntries = Object.entries(reactionsMap);
+              const hasReactions = reactionEntries.length > 0;
 
-                    {/* Sender Name in Bubble */}
-                    {!isMe && isFirstOfCluster && !isDeleted && (
-                      <div className="px-3 pt-2 text-[11px] font-black text-blue-600 tracking-wider uppercase">
-                        {msg.senderName || sender.username}
+              return (
+                <div key={msg.id} className="w-full">
+                  {/* WhatsApp Style Date Separator */}
+                  {showDateDivider && (
+                    <div className="flex justify-center my-3.5">
+                      <span className="px-3 py-1 text-[11px] font-bold text-slate-600 bg-white/95 backdrop-blur-md rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-slate-200/60 select-none">
+                        {getDateLabel(msgDate)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Message Bubble Row with dynamic bottom clearance when reactions exist */}
+                  <div className={`flex items-end gap-2.5 ${hasReactions ? 'mb-3.5' : 'my-1'} ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    {/* WhatsApp-Style Selection Checkbox */}
+                    {isSelectMode && (
+                      <div 
+                        onClick={() => handleBubbleClick(msg)}
+                        className={`w-5 h-5 rounded-md border flex items-center justify-center cursor-pointer transition-all flex-shrink-0 self-center ${
+                          isSelected 
+                            ? 'bg-sky-500 border-sky-500 text-white shadow-xs' 
+                            : 'border-slate-300 bg-white hover:border-slate-400'
+                        }`}
+                      >
+                        {isSelected && <Check size={13} strokeWidth={3.5} />}
                       </div>
                     )}
 
-                    {/* Message Content Body */}
-                    {isDeleted ? (
-                      <div className="flex items-center gap-1.5 text-xs py-0.5">
-                        <Ban size={14} className="text-slate-400" />
-                        <span>This message was deleted</span>
-                        <span className="text-[10px] text-slate-400 ml-2 font-normal not-italic">{timeString}</span>
-                      </div>
-                    ) : (
-                      <>
-                        {msg.forwardedFromGroupName && (
-                          <div className={`px-3 pt-2 text-[10px] font-semibold italic ${isMe ? 'text-blue-100/80' : 'text-slate-400'}`}>
-                            Forwarded from {msg.forwardedFromGroupName}
-                          </div>
-                        )}
-                        {/* WhatsApp-Style Media View */}
-                        {(msg.attachmentData || msg.mediaData) && (
-                          <div className="overflow-hidden rounded-xl p-1">
-                            {msg.attachmentType === 'image' || msg.attachmentType === 'gif' ? (
-                              <div className="relative">
-                                <img
-                                  src={msg.attachmentData || msg.mediaData}
-                                  alt="Chat media"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedImage({ ...msg, attachmentData: msg.attachmentData || msg.mediaData });
-                                  }}
-                                  className="max-h-72 w-full object-cover rounded-xl"
-                                  loading="lazy"
-                                />
-                                <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white">
-                                  <span>{timeString}</span>
-                                  {isMe && <CheckCheck size={12} className="text-blue-300" />}
-                                </div>
-                              </div>
-                            ) : msg.attachmentType === 'video' ? (
-                              <div className="relative rounded-xl overflow-hidden bg-black max-w-sm">
-                                <VideoPlayer src={msg.attachmentData || msg.mediaData} mimeType={msg.attachmentMimeType} />
-                                <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white">
-                                  <span>{timeString}</span>
-                                  {isMe && <CheckCheck size={12} className="text-blue-300" />}
-                                </div>
-                              </div>
-                            ) : msg.attachmentType === 'audio' ? (
-                              <div className="p-2 space-y-1">
-                                <audio src={msg.attachmentData || msg.mediaData} controls className="w-full h-8" />
-                              </div>
-                            ) : (
-                              <div className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
-                                isMe ? 'bg-white/10 border-white/20' : 'bg-slate-50 border-slate-200/80'
-                              }`}>
-                                <FileText size={20} className={isMe ? 'text-white' : 'text-blue-600'} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-bold">{msg.attachmentName || 'Document'}</p>
-                                  <a href={msg.attachmentData} download className="text-[10px] underline font-semibold">Download</a>
-                                </div>
-                              </div>
-                            )}
+                    <div className="relative">
+                      <div 
+                        onClick={() => handleBubbleClick(msg)}
+                        onTouchStart={(e) => handleTouchStart(e, msg, isMe)}
+                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={(e) => handleTouchStart(e, msg, isMe)}
+                        onMouseUp={handleTouchEnd}
+                        onMouseLeave={handleTouchEnd}
+                        onContextMenu={(e) => handleContextMenu(e, msg, isMe)}
+                        className={`relative max-w-[85vw] sm:max-w-[70vw] transition-all cursor-pointer select-none active:scale-[0.99] ${
+                          isSelected ? 'ring-2 ring-sky-500/80 rounded-2xl' : ''
+                        } ${
+                          onlyEmoji 
+                            ? 'bg-transparent shadow-none border-none p-1' 
+                            : isDeleted
+                              ? 'bg-slate-100 text-slate-400 italic border border-slate-200/80 px-3 py-1.5 rounded-2xl shadow-xs'
+                              : isMe
+                                ? 'bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 text-white rounded-2xl rounded-br-xs shadow-[0_1px_3px_rgba(14,165,233,0.25)]'
+                                : 'bg-white text-slate-800 border border-slate-200/70 rounded-2xl rounded-bl-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                        }`}
+                      >
+                        {/* Sender Name in Bubble */}
+                        {!isMe && isFirstOfCluster && !isDeleted && !onlyEmoji && (
+                          <div className="px-3 pt-2 text-[11px] font-black text-sky-600 tracking-wider uppercase">
+                            {msg.senderName || sender.username}
                           </div>
                         )}
 
-                        {/* Sticker Render */}
-                        {msg.type === 'sticker' ? (
-                          <div className="px-3 py-1">
-                            <span className="text-6xl leading-none select-none">{msg.text}</span>
-                            <div className={`text-[9.5px] text-right mt-1 font-semibold flex items-center justify-end gap-1 ${
-                              isMe ? 'text-blue-100/90' : 'text-slate-400'
-                            }`}>
-                              <span>{timeString}</span>
-                              {isMe && <CheckCheck size={12} className="text-blue-200" />}
-                            </div>
+                        {/* Message Content Body */}
+                        {isDeleted ? (
+                          <div className="flex items-center gap-1.5 text-xs py-0.5">
+                            <Ban size={13} className="text-slate-400" />
+                            <span>This message was deleted</span>
+                            <span className="text-[10px] text-slate-400 ml-2 font-normal not-italic">{timeString}</span>
                           </div>
-                        ) : msg.text ? (
-                          /* Proportional WhatsApp text + inline timestamp */
-                          <div className="px-3 py-1.5 flex items-end">
-                            <span className="whitespace-pre-wrap font-normal text-[13.5px] leading-relaxed break-words pr-1.5 select-text">
+                        ) : onlyEmoji ? (
+                          /* Standalone Emoji Display */
+                          <div className="flex flex-col items-center">
+                            <span className="text-5xl py-0.5 leading-tight filter drop-shadow-sm select-none">
                               {msg.text}
                             </span>
-                            
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ml-2 select-none flex-shrink-0 leading-none pb-0.5 ${
-                              isMe ? 'text-blue-100/90' : 'text-slate-400'
-                            }`}>
-                              <span>{timeString}</span>
-                              {isMe && <CheckCheck size={13} className="text-blue-200" />}
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-slate-400 bg-white/70 backdrop-blur-md px-1.5 py-0.5 rounded-full shadow-2xs mt-0.5">
+                              {timeString}
+                              {isMe && <CheckCheck size={11} className="text-sky-500" />}
                             </span>
                           </div>
-                        ) : null}
-                      </>
-                    )}
+                        ) : (
+                          <>
+                            {msg.forwardedFromGroupName && (
+                              <div className={`px-3 pt-2 text-[10px] font-semibold italic flex items-center gap-1 ${isMe ? 'text-sky-100/80' : 'text-slate-400'}`}>
+                                <CornerUpRight size={11} />
+                                <span>Forwarded from {msg.forwardedFromGroupName}</span>
+                              </div>
+                            )}
 
+                            {/* WhatsApp-Style Media View */}
+                            {(msg.attachmentData || msg.mediaData) && (
+                              <div className="overflow-hidden rounded-xl p-1">
+                                {msg.attachmentType === 'image' || msg.attachmentType === 'gif' ? (
+                                  <div className="relative">
+                                    <img
+                                      src={msg.attachmentData || msg.mediaData}
+                                      alt="Chat media"
+                                      onClick={(e) => {
+                                        if (isSelectMode) return;
+                                        e.stopPropagation();
+                                        setSelectedImage({ ...msg, attachmentData: msg.attachmentData || msg.mediaData });
+                                      }}
+                                      className="max-h-72 w-full object-cover rounded-xl"
+                                      loading="lazy"
+                                    />
+                                    <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white">
+                                      <span>{timeString}</span>
+                                      {isMe && <CheckCheck size={12} className="text-sky-300" />}
+                                    </div>
+                                  </div>
+                                ) : msg.attachmentType === 'video' ? (
+                                  <div className="relative rounded-xl overflow-hidden bg-black max-w-sm">
+                                    <VideoPlayer src={msg.attachmentData || msg.mediaData} mimeType={msg.attachmentMimeType} />
+                                    <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white">
+                                      <span>{timeString}</span>
+                                      {isMe && <CheckCheck size={12} className="text-sky-300" />}
+                                    </div>
+                                  </div>
+                                ) : msg.attachmentType === 'audio' ? (
+                                  <div className="p-2 space-y-1">
+                                    <audio src={msg.attachmentData || msg.mediaData} controls className="w-full h-8" />
+                                  </div>
+                                ) : (
+                                  <div className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
+                                    isMe ? 'bg-white/10 border-white/20' : 'bg-slate-50 border-slate-200/80'
+                                  }`}>
+                                    <FileText size={20} className={isMe ? 'text-white' : 'text-sky-500'} />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-xs font-bold">{msg.attachmentName || 'Document'}</p>
+                                      <a href={msg.attachmentData} download className="text-[10px] underline font-semibold">Download</a>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Sticker Render */}
+                            {msg.type === 'sticker' ? (
+                              <div className="px-3 py-1">
+                                <span className="text-6xl leading-none select-none">{msg.text}</span>
+                                <div className={`text-[9.5px] text-right mt-1 font-semibold flex items-center justify-end gap-1 ${
+                                  isMe ? 'text-sky-100/90' : 'text-slate-400'
+                                }`}>
+                                  <span>{timeString}</span>
+                                  {isMe && <CheckCheck size={12} className="text-sky-200" />}
+                                </div>
+                              </div>
+                            ) : msg.text ? (
+                              <div className="px-3 py-1.5 text-[13.5px] leading-relaxed">
+                                <span className="whitespace-pre-wrap font-normal break-words select-text mr-1.5">
+                                  {msg.text}
+                                </span>
+                                
+                                <span className={`inline-flex items-center gap-0.5 text-[9.5px] font-semibold select-none float-right ml-1.5 mt-1 self-end ${
+                                  isMe ? 'text-sky-100/90' : 'text-slate-400'
+                                }`}>
+                                  <span>{timeString}</span>
+                                  {isMe && <CheckCheck size={12} className="text-sky-200" />}
+                                </span>
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+
+                      {/* WhatsApp Style Inline Reaction Badge */}
+                      {hasReactions && (
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (reactionsMap[currentUser.id]) {
+                              handleToggleReaction(msg, reactionsMap[currentUser.id]);
+                            }
+                          }}
+                          className={`absolute -bottom-2.5 ${isMe ? 'right-2' : 'left-2'} z-10 flex items-center gap-0.5 bg-white/95 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-slate-200/80 shadow-xs text-xs font-semibold select-none cursor-pointer hover:scale-105 active:scale-95 transition-transform`}
+                          title="View / remove reaction"
+                        >
+                          {reactionEntries.slice(0, 3).map(([userId, emo]) => (
+                            <span key={userId} className="leading-none text-[13px]">{emo}</span>
+                          ))}
+                          {reactionEntries.length > 1 && (
+                            <span className="text-[10px] text-slate-500 font-bold ml-0.5">
+                              {reactionEntries.length}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
+              );
+            })
+          )}
+          <div ref={bottomRef} />
         </div>
       </div>
 
-      {/* Tap-and-Hold Floating Context Menu (WhatsApp Style) */}
-      {activeContextMenu && (
+      {/* ==================================================================== */}
+      {/* Blurred Liquid Glass Pop-up: Reaction Bar + Cloned Message + Context Window */}
+      {/* ==================================================================== */}
+      {activeContextMenu && createPortal(
         <div 
-          className="fixed z-50 animate-in zoom-in-95 duration-100"
-          style={{
-            top: Math.min(Math.max(16, activeContextMenu.y - 60), window.innerHeight - 150),
-            left: activeContextMenu.isMe 
-              ? Math.max(16, activeContextMenu.x - 170)
-              : Math.min(window.innerWidth - 180, activeContextMenu.x + 10)
-          }}
-          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[110] bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setActiveContextMenu(null)}
         >
-          <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-1 shadow-[0_12px_32px_rgba(0,0,0,0.18)] flex items-center gap-1 text-xs font-bold text-slate-700">
-            {activeContextMenu.message.text && (
+          {/* Stacked Options Container Anchored Directly Above or Below Bubble Coordinates */}
+          <div 
+            className="absolute flex flex-col gap-2 z-10 w-64 animate-in zoom-in-95 duration-200"
+            style={{
+              left: `${activeContextMenu.xPos}px`,
+              top: activeContextMenu.position === 'below' 
+                ? `${Math.min(window.innerHeight - 340, activeContextMenu.rect.bottom + 12)}px`
+                : `${Math.max(16, activeContextMenu.rect.top - 330)}px`
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 1. Quick Emoji Reaction Pill Bar */}
+            <div className="flex items-center justify-between bg-white/85 backdrop-blur-2xl px-3.5 py-2 rounded-full shadow-2xl border border-white/70">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleToggleReaction(activeContextMenu.message, emoji)}
+                  className="text-xl hover:scale-125 active:scale-95 transition-transform"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            {/* 2. Highlighted Cloned Message Preview */}
+            <div className={`p-3 rounded-2xl shadow-xl border text-[13.5px] leading-relaxed break-words max-h-40 overflow-y-auto scrollbar-hide backdrop-blur-xl ${
+              activeContextMenu.isMe
+                ? 'bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 text-white border-white/30 shadow-sky-500/20'
+                : 'bg-white/90 text-slate-800 border-white/80'
+            }`}>
+              {activeContextMenu.message.text ? (
+                <p className="whitespace-pre-wrap">{activeContextMenu.message.text}</p>
+              ) : activeContextMenu.message.type === 'sticker' ? (
+                <span className="text-4xl">{activeContextMenu.message.text}</span>
+              ) : activeContextMenu.message.attachmentData ? (
+                <div className="flex items-center gap-2">
+                  {activeContextMenu.message.attachmentType === 'image' || activeContextMenu.message.attachmentType === 'gif' ? (
+                    <img 
+                      src={activeContextMenu.message.attachmentData} 
+                      alt="preview" 
+                      className="w-16 h-16 rounded-xl object-cover" 
+                    />
+                  ) : (
+                    <FileText size={24} className={activeContextMenu.isMe ? 'text-white' : 'text-sky-500'} />
+                  )}
+                  <span className="truncate text-xs font-bold">
+                    {activeContextMenu.message.attachmentName || 'Media attachment'}
+                  </span>
+                </div>
+              ) : (
+                'Message'
+              )}
+            </div>
+
+            {/* 3. iOS-Style Stacked Options Menu */}
+            <div className="overflow-hidden rounded-2xl bg-white/90 backdrop-blur-2xl shadow-2xl border border-white/70 divide-y divide-slate-100/90">
+              {activeContextMenu.message.text && (
+                <button
+                  type="button"
+                  onClick={() => handleCopyMessage(activeContextMenu.message)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors"
+                >
+                  <span>Copy</span>
+                  <Copy size={15} className="text-slate-400" />
+                </button>
+              )}
+
+              {/* Select Message Action */}
               <button
                 type="button"
-                onClick={() => handleCopyMessage(activeContextMenu.message)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-slate-100 active:scale-95 transition-all"
-                title="Copy text"
+                onClick={() => startSelectMode(activeContextMenu.message)}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors"
               >
-                <Copy size={14} className="text-slate-500" />
-                <span>Copy</span>
+                <span>Select</span>
+                <CheckSquare size={15} className="text-slate-400" />
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={() => handleShareMessage(activeContextMenu.message)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-slate-100 active:scale-95 transition-all"
-              title="Share message"
-            >
-              <Share2 size={14} className="text-slate-500" />
-              <span>Share</span>
-            </button>
+              {/* Forward / Share Action */}
+              <button
+                type="button"
+                onClick={() => {
+                  const targetMsg = activeContextMenu.message;
+                  setActiveContextMenu(null);
+                  setShareError('');
+                  setShareDialogMessages([targetMsg]);
+                }}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors"
+              >
+                <span>Forward</span>
+                <Share2 size={15} className="text-slate-400" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                const targetMsg = activeContextMenu.message;
-                setActiveContextMenu(null);
-                setDeleteError('');
-                setDeleteDialogMessage(targetMsg);
-              }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 active:scale-95 transition-all"
-              title="Delete message"
-            >
-              <Trash2 size={14} />
-              <span>Delete</span>
-            </button>
+              {/* Delete Action */}
+              <button
+                type="button"
+                onClick={() => {
+                  const targetMsg = activeContextMenu.message;
+                  setActiveContextMenu(null);
+                  setDeleteError('');
+                  setDeleteDialogMessages([targetMsg]);
+                }}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <span>Delete…</span>
+                <Trash2 size={15} className="text-rose-500" />
+              </button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Delete Confirmation Sheet (3 options: Delete for Me, Delete for Everyone, Cancel) */}
-      {deleteDialogMessage && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-xs rounded-3xl p-5 bg-white shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-150">
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1">Delete message?</h3>
+      {/* Delete Confirmation Sheet */}
+      {deleteDialogMessages && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-xs rounded-3xl p-5 bg-white/95 backdrop-blur-2xl shadow-2xl border border-white/70 text-center animate-in zoom-in-95 duration-150">
+            <h3 className="text-sm font-extrabold text-slate-900 mb-1">
+              Delete {deleteDialogMessages.length > 1 ? `${deleteDialogMessages.length} messages` : 'message'}?
+            </h3>
             <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Choose how you want to remove this message.
+              Choose how you want to remove selected message(s).
             </p>
             {deleteError && <p role="alert" className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-left text-xs font-medium text-rose-700">{deleteError}</p>}
 
             <div className="space-y-2">
-              {/* Option 1: Delete for Me */}
               <button
                 type="button"
-                onClick={() => handleDeleteForMe(deleteDialogMessage)}
+                onClick={() => handleDeleteBatchForMe(deleteDialogMessages)}
                 disabled={deletingMessage}
                 className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
               >
                 {deletingMessage ? 'Deleting...' : 'Delete for Me'}
               </button>
 
-              {/* Option 2: Delete for Everyone (if sender is me or group admin) */}
-              {(deleteDialogMessage.senderId === currentUser.id || group.createdBy === currentUser.id) && (
+              {canDeleteAllForEveryone && (
                 <button
                   type="button"
-                  onClick={() => handleDeleteForEveryone(deleteDialogMessage)}
+                  onClick={() => handleDeleteBatchForEveryone(deleteDialogMessages)}
                   disabled={deletingMessage}
                   className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors"
                 >
@@ -791,10 +1114,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 </button>
               )}
 
-              {/* Option 3: Cancel */}
               <button
                 type="button"
-                onClick={() => setDeleteDialogMessage(null)}
+                onClick={() => setDeleteDialogMessages(null)}
                 disabled={deletingMessage}
                 className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition-colors"
               >
@@ -806,11 +1128,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         document.body
       )}
 
-      {shareDialogMessage && createPortal(
+      {/* Forward/Share Message Dialog */}
+      {shareDialogMessages && createPortal(
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md animate-in fade-in duration-150"
           onClick={() => {
-            if (!sharingGroupId) setShareDialogMessage(null);
+            if (!sharingGroupId) setShareDialogMessages(null);
           }}
         >
           <section
@@ -822,18 +1145,20 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
                   <Share2 size={19} />
                 </div>
-                <h3 id="share-message-title" className="text-base font-extrabold text-slate-900">Share to a group</h3>
-                <p className="mt-1 text-xs text-slate-500">Choose one of your other groups.</p>
+                <h3 id="share-message-title" className="text-base font-extrabold text-slate-900">
+                  Forward {shareDialogMessages.length > 1 ? `${shareDialogMessages.length} messages` : 'message'}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">Choose one of your other shared spaces.</p>
               </div>
               <button
                 type="button"
-                onClick={() => setShareDialogMessage(null)}
+                onClick={() => setShareDialogMessages(null)}
                 disabled={Boolean(sharingGroupId)}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-                aria-label="Close share dialog"
+                aria-label="Close forward dialog"
               >
                 <X size={17} />
               </button>
@@ -848,19 +1173,19 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                   <button
                     key={destinationGroup.id}
                     type="button"
-                    onClick={() => handleForwardMessage(destinationGroup)}
+                    onClick={() => handleForwardMessages(destinationGroup)}
                     disabled={Boolean(sharingGroupId)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-blue-200 hover:bg-blue-50/60 disabled:cursor-wait disabled:opacity-60"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-sky-200 hover:bg-sky-50/60 disabled:cursor-wait disabled:opacity-60"
                   >
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-extrabold text-blue-700">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sm font-extrabold text-sky-700">
                       {destinationGroup.name?.charAt(0).toUpperCase() || <Users size={17} />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-slate-800">{destinationGroup.name}</span>
                       <span className="mt-0.5 block text-xs text-slate-500">{destinationGroup.members?.length || 0} members</span>
                     </span>
-                    <span className="text-xs font-semibold text-blue-600">
-                      {sharingGroupId === destinationGroup.id ? 'Sharing…' : 'Share'}
+                    <span className="text-xs font-semibold text-sky-600">
+                      {sharingGroupId === destinationGroup.id ? 'Forwarding…' : 'Forward'}
                     </span>
                   </button>
                 ))}
@@ -878,189 +1203,192 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       )}
 
       {/* Floating Liquid Glass Input Bar */}
-      <div className="relative z-20 px-3 pb-6 sm:px-6 pt-2">
-        {attachmentError && (
-          <div className="max-w-3xl mx-auto mb-2 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold border border-rose-200/80 animate-in fade-in duration-150">
-            {attachmentError}
-          </div>
-        )}
-
-        {/* Tabbed Emoji, Sticker & GIF Picker */}
-        {pickerTab && (
-          <div className="max-w-3xl mx-auto mb-3 rounded-[28px] bg-white/90 backdrop-blur-2xl border border-white/80 p-3 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setPickerTab('emoji')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    pickerTab === 'emoji' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  Emoji
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPickerTab('sticker')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    pickerTab === 'sticker' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  Stickers
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPickerTab('gif')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    pickerTab === 'gif' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  GIFs
-                </button>
-              </div>
-
-              <button 
-                type="button" 
-                onClick={() => setPickerTab(null)} 
-                className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 bg-slate-100 transition-colors"
-              >
-                <X size={14} />
-              </button>
+      {!isSelectMode && (
+        <div className="relative z-20 px-3 pb-6 sm:px-6 pt-2">
+          {attachmentError && (
+            <div className="max-w-3xl mx-auto mb-2 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-semibold border border-rose-200/80 animate-in fade-in duration-150">
+              {attachmentError}
             </div>
+          )}
 
-            {pickerTab === 'emoji' && (
-              <>
-                <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
-                  {Object.keys(EMOJI_CATEGORIES).map(cat => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setActiveEmojiCat(cat)}
-                      className={`px-2.5 py-0.5 rounded-full flex-shrink-0 transition-all ${
-                        activeEmojiCat === cat ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-500'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto scrollbar-hide p-1">
-                  {EMOJI_CATEGORIES[activeEmojiCat]?.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => appendEmoji(item)}
-                      className="text-2xl aspect-square rounded-xl hover:bg-blue-50 active:scale-90 transition-all flex items-center justify-center"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {pickerTab === 'sticker' && (
-              <>
-                <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
-                  {Object.keys(STICKER_PACKS).map(pack => (
-                    <button
-                      key={pack}
-                      type="button"
-                      onClick={() => setActiveStickerPack(pack)}
-                      className={`px-2.5 py-0.5 rounded-full flex-shrink-0 transition-all ${
-                        activeStickerPack === pack ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-500'
-                      }`}
-                    >
-                      {pack}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto scrollbar-hide p-1">
-                  {STICKER_PACKS[activeStickerPack]?.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => handleSendSticker(item)}
-                      className="text-3xl aspect-square rounded-2xl hover:bg-blue-50 active:scale-90 transition-all flex items-center justify-center"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {pickerTab === 'gif' && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto scrollbar-hide p-1">
-                {POPULAR_GIFS.map((gif) => (
+          {/* Tabbed Emoji, Sticker & GIF Picker */}
+          {pickerTab && (
+            <div className="max-w-3xl mx-auto mb-3 rounded-[28px] bg-white/95 backdrop-blur-2xl border border-white/80 p-3 shadow-2xl animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   <button
-                    key={gif.id}
                     type="button"
-                    onClick={() => handleSendGif(gif.url)}
-                    className="relative rounded-xl overflow-hidden aspect-video border border-slate-200 hover:border-blue-400 active:scale-95 transition-all group"
+                    onClick={() => setPickerTab('emoji')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      pickerTab === 'emoji' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
+                    }`}
                   >
-                    <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
-                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-bold">
-                      {gif.title}
-                    </span>
+                    Emoji
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setPickerTab('sticker')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      pickerTab === 'sticker' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
+                    }`}
+                  >
+                    Stickers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerTab('gif')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      pickerTab === 'gif' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
+                    }`}
+                  >
+                    GIFs
+                  </button>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => setPickerTab(null)} 
+                  className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 bg-slate-100 transition-colors"
+                >
+                  <X size={14} />
+                </button>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Input Capsule */}
-        <form 
-          onSubmit={handleSend} 
-          className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/90 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.12)] transition-all focus-within:ring-2 focus-within:ring-blue-500/20"
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+              {pickerTab === 'emoji' && (
+                <>
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
+                    {Object.keys(EMOJI_CATEGORIES).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setActiveEmojiCat(cat)}
+                        className={`px-2.5 py-0.5 rounded-full flex-shrink-0 transition-all ${
+                          activeEmojiCat === cat ? 'bg-sky-50 text-sky-600 border border-sky-200' : 'text-slate-500'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto scrollbar-hide p-1">
+                    {EMOJI_CATEGORIES[activeEmojiCat]?.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => appendEmoji(item)}
+                        className="text-2xl aspect-square rounded-xl hover:bg-sky-50 active:scale-90 transition-all flex items-center justify-center"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-blue-600 hover:bg-white active:scale-95 transition-all disabled:opacity-40"
-            title="Upload photo, document, video or audio"
+              {pickerTab === 'sticker' && (
+                <>
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
+                    {Object.keys(STICKER_PACKS).map(pack => (
+                      <button
+                        key={pack}
+                        type="button"
+                        onClick={() => setActiveStickerPack(pack)}
+                        className={`px-2.5 py-0.5 rounded-full flex-shrink-0 transition-all ${
+                          activeStickerPack === pack ? 'bg-sky-50 text-sky-600 border border-sky-200' : 'text-slate-500'
+                        }`}
+                      >
+                        {pack}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto scrollbar-hide p-1">
+                    {STICKER_PACKS[activeStickerPack]?.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => handleSendSticker(item)}
+                        className="text-3xl aspect-square rounded-2xl hover:bg-sky-50 active:scale-90 transition-all flex items-center justify-center"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {pickerTab === 'gif' && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto scrollbar-hide p-1">
+                  {POPULAR_GIFS.map((gif) => (
+                    <button
+                      key={gif.id}
+                      type="button"
+                      onClick={() => handleSendGif(gif.url)}
+                      className="relative rounded-xl overflow-hidden aspect-video border border-slate-200 hover:border-sky-400 active:scale-95 transition-all group"
+                    >
+                      <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-bold">
+                        {gif.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Input Capsule with onPaste for Keyboard GIFs & Stickers */}
+          <form 
+            onSubmit={handleSend} 
+            className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.12)] transition-all focus-within:ring-2 focus-within:ring-sky-500/20"
           >
-            {uploading ? <span className="text-[10px] font-bold text-blue-600 animate-pulse">...</span> : <ImagePlus size={19} />}
-          </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
 
-          <button
-            type="button"
-            onClick={() => setPickerTab((curr) => curr === 'emoji' ? null : 'emoji')}
-            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all active:scale-95 ${
-              pickerTab === 'emoji' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:text-blue-600 hover:bg-white'
-            }`}
-            title="Emoji / Stickers / GIFs"
-          >
-            <Smile size={19} />
-          </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-sky-600 hover:bg-white active:scale-95 transition-all disabled:opacity-40"
+              title="Upload photo, document, video or audio"
+            >
+              {uploading ? <span className="text-[10px] font-bold text-sky-600 animate-pulse">...</span> : <ImagePlus size={19} />}
+            </button>
 
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message or note..."
-            className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 font-medium"
-          />
+            <button
+              type="button"
+              onClick={() => setPickerTab((curr) => curr === 'emoji' ? null : 'emoji')}
+              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all active:scale-95 ${
+                pickerTab === 'emoji' ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:text-sky-600 hover:bg-white'
+              }`}
+              title="Emoji / Stickers / GIFs"
+            >
+              <Smile size={19} />
+            </button>
 
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-md shadow-blue-500/25 transition-all hover:bg-blue-700 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
-            aria-label="Send message"
-          >
-            <Send size={16} className="-mr-0.5" />
-          </button>
-        </form>
-      </div>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={handleInputPaste}
+              placeholder="Type a message or note..."
+              className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 font-medium"
+            />
+
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25 transition-all hover:opacity-95 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Send message"
+            >
+              <Send size={16} className="-mr-0.5" />
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Clear Chat Confirmation Modal */}
       {showClearConfirm && createPortal(

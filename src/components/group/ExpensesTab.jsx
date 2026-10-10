@@ -117,7 +117,7 @@ export default function ExpensesTab({ expenses, currentUser, users = [], getUser
   };
 
   return (
-    <div className="relative min-h-full space-y-4 p-4 pb-4 md:pb-0">
+    <div className="relative mx-auto min-h-full w-full space-y-4 p-4 pb-4 md:max-w-6xl md:p-8 md:pb-0">
       {/* Top Filter and Select Controls */}
       <div className="flex items-center justify-between gap-2.5">
         {/* Paid-by Roommate Filter Pills */}

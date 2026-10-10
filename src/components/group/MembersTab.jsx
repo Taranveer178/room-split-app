@@ -196,7 +196,7 @@ export default function MembersTab({
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 space-y-4 pb-[130px] md:pb-36 relative min-h-full max-w-4xl mx-auto animate-in fade-in duration-300 font-sans">
+    <div className="p-4 sm:p-6 lg:p-10 space-y-4 pb-[130px] md:pb-36 relative min-h-full max-w-4xl mx-auto animate-in fade-in duration-300 font-sans md:max-w-6xl">
       
       {/* Ambient background glows */}
       <div className="absolute top-0 right-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />

@@ -158,7 +158,7 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
   const getInitials = () => (user?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className={`relative w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-10 animate-in fade-in duration-300 ${isEditing ? 'pb-28 md:pb-10' : 'pb-16'}`}>
+    <div className={`relative w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-10 animate-in fade-in duration-300 md:max-w-6xl ${isEditing ? 'pb-28 md:pb-10' : 'pb-16'}`}>
       
       {/* Decorative ambient gradients */}
       <div className="absolute top-0 right-10 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
