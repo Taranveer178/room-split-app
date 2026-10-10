@@ -25,6 +25,7 @@ import {
   where, 
   onSnapshot, 
   addDoc, 
+  setDoc,
   updateDoc, 
   doc, 
   arrayUnion, 
@@ -62,6 +63,9 @@ const POPULAR_GIFS = [
 
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 const MAX_BATCH_MESSAGES = 500;
+const TYPING_IDLE_DELAY = 1800;
+const TYPING_UPDATE_INTERVAL = 1500;
+const TYPING_EXPIRY = 5000;
 
 const getTimestamp = () => Date.now();
 
@@ -76,6 +80,8 @@ const isOnlyEmojis = (str) => {
 
 export default function ChatTab({ group, groups = [], currentUser, users, showToast }) {
   const [messages, setMessages] = useState([]);
+  const [typingMessages, setTypingMessages] = useState([]);
+  const [typingNow, setTypingNow] = useState(0);
   const [input, setInput] = useState('');
   const [pickerTab, setPickerTab] = useState(null);
   const [activeStickerPack, setActiveStickerPack] = useState('Reactions');
@@ -105,6 +111,84 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const initialAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
   const pressTimerRef = useRef(null);
+  const typingStopTimerRef = useRef(null);
+  const typingDocRef = useMemo(
+    () => (db && group.id && currentUser.id
+      ? doc(db, 'messages', `typing-${encodeURIComponent(group.id)}-${encodeURIComponent(currentUser.id)}`)
+      : null),
+    [group.id, currentUser.id]
+  );
+  const typingWriteQueueRef = useRef(Promise.resolve());
+  const typingActiveRef = useRef(false);
+  const lastTypingWriteRef = useRef(0);
+  const typingErrorShownRef = useRef(false);
+
+  const reportTypingError = (error, message) => {
+    console.error('Chat typing status error:', error);
+    if (typingErrorShownRef.current) return;
+    typingErrorShownRef.current = true;
+    showToast?.(message, 'error');
+  };
+
+  const stopTyping = () => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (!typingActiveRef.current || !typingDocRef) return;
+
+    typingActiveRef.current = false;
+    typingWriteQueueRef.current = typingWriteQueueRef.current
+      .catch(() => {})
+      .then(() => updateDoc(typingDocRef, { typingExpiresAt: 0 }))
+      .catch((error) => {
+        reportTypingError(error, 'Could not clear typing status. It will disappear shortly.');
+      });
+  };
+
+  const updateTypingStatus = (text) => {
+    if (!text.trim() || !typingDocRef) {
+      stopTyping();
+      return;
+    }
+
+    typingActiveRef.current = true;
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(stopTyping, TYPING_IDLE_DELAY);
+
+    const now = Date.now();
+    if (now - lastTypingWriteRef.current < TYPING_UPDATE_INTERVAL) return;
+    lastTypingWriteRef.current = now;
+
+    typingWriteQueueRef.current = typingWriteQueueRef.current
+      .catch(() => {})
+      .then(() => setDoc(typingDocRef, {
+        groupId: group.id,
+        senderId: currentUser.id,
+        senderName: currentUser.username || 'A roommate',
+        type: 'typing',
+        typingExpiresAt: Date.now() + TYPING_EXPIRY,
+      }))
+      .then(() => {
+        typingErrorShownRef.current = false;
+      })
+      .catch((error) => {
+        reportTypingError(error, 'Could not share your typing status. Please try again.');
+      });
+  };
+
+  useEffect(() => () => {
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    if (typingActiveRef.current && typingDocRef) {
+      typingWriteQueueRef.current = typingWriteQueueRef.current
+        .catch(() => {})
+        .then(() => updateDoc(typingDocRef, { typingExpiresAt: 0 }))
+        .catch((error) => {
+          console.error('Could not clear typing status during chat cleanup:', error);
+        });
+      typingActiveRef.current = false;
+    }
+  }, [typingDocRef]);
 
   const getUser = (userId) => {
     return users.find(u => u.id === userId) || { username: 'Roommate' };
@@ -147,19 +231,61 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         ...doc.data()
       }));
 
-      msgs.sort((a, b) => {
+      setTypingMessages(msgs.filter((message) => message.type === 'typing'));
+
+      const chatMessages = msgs.filter((message) => message.type !== 'typing');
+      chatMessages.sort((a, b) => {
         const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.timestamp || 0);
         const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.timestamp || 0);
         return timeA - timeB;
       });
 
-      setMessages(msgs);
+      setMessages(chatMessages);
     }, (err) => {
       console.error("Firestore chat error:", err);
     });
 
     return () => unsubscribe();
   }, [group?.id]);
+
+  const hasActiveTypingStatus = typingMessages.some((message) => (
+    message.groupId === group.id
+    && message.senderId !== currentUser.id
+    && message.typingExpiresAt > typingNow
+  ));
+
+  useEffect(() => {
+    if (!hasActiveTypingStatus) return undefined;
+    const initialRefresh = window.setTimeout(() => setTypingNow(Date.now()), 0);
+    const interval = window.setInterval(() => setTypingNow(Date.now()), 1000);
+    return () => {
+      window.clearTimeout(initialRefresh);
+      window.clearInterval(interval);
+    };
+  }, [hasActiveTypingStatus]);
+
+  const typingUsers = useMemo(() => {
+    const activeUsers = new Map();
+    typingMessages.forEach((message) => {
+      if (
+        message.senderId
+        && message.groupId === group.id
+        && message.senderId !== currentUser.id
+        && message.typingExpiresAt > typingNow
+      ) {
+        activeUsers.set(message.senderId, message.senderName || 'A roommate');
+      }
+    });
+    return [...activeUsers.values()];
+  }, [typingMessages, typingNow, group.id, currentUser.id]);
+
+  const typingLabel = typingUsers.length === 1
+    ? `${typingUsers[0]} is typing`
+    : typingUsers.length === 2
+      ? `${typingUsers[0]} and ${typingUsers[1]} are typing`
+      : typingUsers.length > 2
+        ? `${typingUsers[0]}, ${typingUsers[1]} and ${typingUsers.length - 2} others are typing`
+        : '';
 
   useLayoutEffect(() => {
     const messageFeed = messageFeedRef.current;
@@ -311,6 +437,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     setInput('');
 
     try {
+      stopTyping();
       await addDoc(collection(db, 'messages'), {
         groupId: group.id,
         senderId: currentUser.id,
@@ -956,6 +1083,24 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               );
             })
           )}
+          {typingLabel && (
+            <div
+              className="flex min-h-9 items-center gap-2 px-2 text-xs font-semibold text-slate-500"
+              aria-live="polite"
+              aria-label={`${typingLabel}...`}
+            >
+              <span>{typingLabel}</span>
+              <span className="inline-flex items-center gap-1" aria-hidden="true">
+                {[0, 1, 2].map((dot) => (
+                  <span
+                    key={dot}
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-sky-500"
+                    style={{ animationDelay: `${dot * 160}ms` }}
+                  />
+                ))}
+              </span>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
       </div>
@@ -1372,7 +1517,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
 
             <input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                updateTypingStatus(e.target.value);
+              }}
               onPaste={handleInputPaste}
               placeholder="Type a message or note..."
               className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 font-medium"

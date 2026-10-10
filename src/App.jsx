@@ -337,7 +337,8 @@ export default function App() {
             .filter((change) => change.type === 'added')
             .map((change) => ({ id: change.doc.id, ...change.doc.data() }))
             .filter((message) => (
-              message.senderId !== activeUserId
+              message.type !== 'typing'
+              && message.senderId !== activeUserId
               && activeChatGroupId !== groupId
               && !message.isDeletedForEveryone
               && !message.deletedFor?.includes(activeUserId)
