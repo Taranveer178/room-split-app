@@ -41,7 +41,7 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
         setTestPushStatus(`Error: ${res?.error || 'Failed to get permission or token'}`);
         return;
       }
-      setTestPushStatus(`Token: ${res.token.substring(0, 15)}... Sending test push...`);
+      setTestPushStatus('Device registered. Sending test push...');
       await triggerPushNotification({
         recipientId: user.id,
         title: 'Test Push Notification',

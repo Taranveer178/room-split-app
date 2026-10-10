@@ -22,7 +22,9 @@ messaging.onBackgroundMessage((payload) => {
     icon: '/roomsplit-icon.webp',
     badge: '/roomsplit-icon.webp',
     data: {
-      url: payload.data?.url || '/'
+      url: payload.data?.url || '/',
+      recipientId: payload.data?.recipientId || '',
+      groupId: payload.data?.groupId || ''
     }
   };
 

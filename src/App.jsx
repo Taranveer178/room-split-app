@@ -24,6 +24,11 @@ import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
 import IncomingChatAlert from './components/common/IncomingChatAlert';
 import AdminPanel from './components/admin/AdminPanel';
+import {
+  requestNotificationPermission,
+  setPushNotificationActionHandler,
+  unregisterPushNotifications,
+} from './utils/notifications';
 import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 const getGroupSlug = (name, fallback = 'group') => {
@@ -125,6 +130,7 @@ export default function App() {
   );
   const historyInitializedRef = useRef(false);
   const currentRouteRef = useRef(initialRoute);
+  const navigateToRef = useRef(null);
   const activeUser = users.find((user) => user.id === activeUserId);
   const mutedGroupIds = useMemo(
     () => (Array.isArray(activeUser?.mutedGroupIds) ? activeUser.mutedGroupIds : []),
@@ -165,6 +171,9 @@ export default function App() {
     else window.history.pushState(state, '', url);
     applyRoute(normalizedRoute);
   };
+  useEffect(() => {
+    navigateToRef.current = navigateTo;
+  });
 
   const goBack = () => {
     window.history.back();
@@ -229,9 +238,11 @@ export default function App() {
     }
 
     const unsubscribers = [];
+    let isCancelled = false;
     const setupAuthAndSync = async () => {
       try {
         await signInAnonymously(auth);
+        if (isCancelled) return;
         unsubscribers.push(onSnapshot(collection(db, 'users'), (snapshot) => {
           if (!snapshot.empty) {
             setUsers(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
@@ -270,12 +281,15 @@ export default function App() {
         }, (error) => console.error('Notifications listener error:', error)));
       } catch (error) {
         console.error('Firestore auth setup failed:', error);
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
 
     setupAuthAndSync();
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+    return () => {
+      isCancelled = true;
+      unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+    };
   }, []);
 
   useEffect(() => {
@@ -346,6 +360,8 @@ export default function App() {
   };
 
   const handleLogin = (userId) => {
+    setIncomingChat(null);
+    setActiveChatGroupId(null);
     setActiveUserId(userId);
     localStorage.setItem('rs_active_user_id', userId);
     navigateTo(initialRoute.view === 'join_group'
@@ -353,7 +369,16 @@ export default function App() {
       : { view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await unregisterPushNotifications(activeUserId);
+    } catch (error) {
+      console.error('Could not safely unregister this device from push notifications.', error);
+      showToast('Could not finish signing out safely. Please try again.', 'error');
+      return;
+    }
+    setIncomingChat(null);
+    setActiveChatGroupId(null);
     setActiveUserId(null);
     localStorage.removeItem('rs_active_user_id');
     navigateTo({ view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
@@ -524,6 +549,29 @@ export default function App() {
     group.id === currentGroupRoute
     || getGroupSlug(group.name, group.id) === currentGroupRoute
   ));
+  const pushUserId = activeUser?.id;
+  useEffect(() => {
+    if (!pushUserId) return;
+    requestNotificationPermission({ id: pushUserId }).then((result) => {
+      if (!result.success) console.warn('Push notifications are unavailable:', result.error);
+    });
+  }, [pushUserId]);
+
+  useEffect(() => {
+    return setPushNotificationActionHandler((notification) => {
+      if (!activeUserId || notification.data?.recipientId !== activeUserId) return;
+      const notificationGroup = groups.find((group) => group.id === notification.data?.groupId);
+      if (notificationGroup && navigateToRef.current) {
+        navigateToRef.current({
+          view: 'group',
+          groupId: notificationGroup.id,
+          groupName: notificationGroup.name,
+          initialTab: 'expenses',
+        });
+      }
+    });
+  }, [activeUserId, groups]);
+
   const visibleNotifications = notifications.filter((notification) => {
     const timestamp = getNotificationTimestamp(notification.createdAt);
     return notification.recipientId === activeUserId

@@ -74,20 +74,44 @@ export default async function handler(req, res) {
     const messaging = getMessaging();
 
     const userDoc = await db.collection('users').doc(recipientId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'Recipient not found' });
+    }
     const user = userDoc.data();
     if (groupId && Array.isArray(user?.mutedGroupIds) && user.mutedGroupIds.includes(groupId)) {
       return res.status(200).json({ success: true, muted: true, count: 0 });
     }
 
-    const fcmTokens = user?.fcmTokens || [];
+    if (groupId) {
+      const groupDoc = await db.collection('groups').doc(groupId).get();
+      if (!groupDoc.exists || !groupDoc.data()?.members?.includes(recipientId)) {
+        return res.status(403).json({ error: 'Recipient is not a member of this group' });
+      }
+    }
+
+    const fcmTokens = [...new Set(
+      (Array.isArray(user?.fcmTokens) ? user.fcmTokens : [])
+        .filter((token) => typeof token === 'string' && token.length > 0)
+    )];
 
     if (!fcmTokens.length) {
       return res.status(200).json({ message: 'No registered device tokens found' });
     }
 
-    const response = await messaging.sendEachForMulticast({
+    const uniquelyOwnedTokens = (await Promise.all(fcmTokens.map(async (token) => {
+      const owners = await db.collection('users')
+        .where('fcmTokens', 'array-contains', token)
+        .get();
+      return owners.size === 1 && owners.docs[0].id === recipientId ? token : null;
+    }))).filter(Boolean);
+
+    if (!uniquelyOwnedTokens.length) {
+      return res.status(200).json({ message: 'No uniquely owned device tokens found' });
+    }
+
+    const pushMessage = {
       notification: { title, body: message },
-      data: { groupId, url: '/' },
+      data: { groupId, recipientId, url: '/' },
       android: {
         priority: 'high',
         notification: {
@@ -105,29 +129,38 @@ export default async function handler(req, res) {
           },
         },
       },
-      tokens: fcmTokens,
-    });
+    };
 
     const deadTokens = [];
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success) {
-        const code = resp.error?.code;
-        if (
-          code === 'messaging/registration-token-not-registered' ||
-          code === 'messaging/invalid-registration-token'
-        ) {
-          deadTokens.push(fcmTokens[idx]);
+    let successCount = 0;
+    for (let offset = 0; offset < uniquelyOwnedTokens.length; offset += 500) {
+      const batchTokens = uniquelyOwnedTokens.slice(offset, offset + 500);
+      const response = await messaging.sendEachForMulticast({
+        ...pushMessage,
+        tokens: batchTokens,
+      });
+      successCount += response.successCount;
+      response.responses.forEach((result, idx) => {
+        if (!result.success) {
+          const code = result.error?.code;
+          if (
+            code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/invalid-registration-token'
+          ) {
+            deadTokens.push(batchTokens[idx]);
+          }
         }
-      }
-    });
-
-    if (deadTokens.length > 0) {
-      await db.collection('users').doc(recipientId).update({
-        fcmTokens: FieldValue.arrayRemove(...deadTokens),
       });
     }
 
-    return res.status(200).json({ success: true, count: response.successCount });
+    const recipientRef = db.collection('users').doc(recipientId);
+    for (let offset = 0; offset < deadTokens.length; offset += 500) {
+      await recipientRef.update({
+        fcmTokens: FieldValue.arrayRemove(...deadTokens.slice(offset, offset + 500)),
+      });
+    }
+
+    return res.status(200).json({ success: true, count: successCount });
   } catch (error) {
     console.error('Push dispatch error:', error);
     return res.status(500).json({ error: error.message });

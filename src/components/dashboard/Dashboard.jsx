@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { LogOut, Plus, UserPlus, Users, Download, ChevronRight, LayoutDashboard, Archive, ArchiveRestore, Pin, PinOff, Bell, BellOff } from 'lucide-react';
 import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import PrimaryNav from '../common/PrimaryNav';
-import { requestNotificationPermission } from '../../utils/notifications';
 import ActivityTab from './ActivityTab';
 import MonthlyAnalyticsTab from './MonthlyAnalyticsTab';
 import ProfileTabView from './ProfileTab';
@@ -45,13 +44,6 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
       onMarkNotificationsRead(unreadNotifications.map((notification) => notification.id));
     }
   }, [activeTab, notifications]);
-
-  // Request notification permissions when user logs in
-  useEffect(() => {
-    if (user?.id) {
-      requestNotificationPermission(user);
-    }
-  }, [user?.id]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
