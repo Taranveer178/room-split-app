@@ -1,8 +1,10 @@
-import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const admin = require('firebase-admin');
 
 export function getAdminApp() {
-  if (getApps().length > 0) return getApp();
+  if (admin.apps.length > 0) return admin.app();
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -12,12 +14,12 @@ export function getAdminApp() {
     throw new Error('Firebase Admin credentials are not configured');
   }
 
-  return initializeApp({
-    credential: cert({ projectId, clientEmail, privateKey }),
+  return admin.initializeApp({
+    credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
   });
 }
 
 export function getAdminFirestore() {
   getAdminApp();
-  return getFirestore();
+  return admin.firestore();
 }

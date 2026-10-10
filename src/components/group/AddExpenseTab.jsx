@@ -18,6 +18,7 @@ import { Button, Input } from '../common/UI';
 export default function AddExpenseTab({
   group,
   currentUser,
+  users = [],
   getUserName,
   onSaveExpense,
   onSendNotification,
@@ -334,6 +335,7 @@ export default function AddExpenseTab({
             {group.members.map((memberId) => {
               const isUser = memberId === currentUser.id;
               const memberName = isUser ? 'You' : getUserName(memberId);
+              const member = users.find((user) => user.id === memberId);
               const isChecked = selectedParticipants[memberId] || false;
 
               return (
@@ -349,7 +351,11 @@ export default function AddExpenseTab({
                     <span className={`w-7 h-7 overflow-hidden rounded-full flex items-center justify-center text-[10px] font-black ${
                       isUser ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
                     }`}>
-                      {(isUser ? 'Y' : (memberName || 'U')).charAt(0).toUpperCase()}
+                      {member?.photoDataUrl ? (
+                        <img src={member.photoDataUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        (isUser ? 'Y' : (memberName || 'U')).charAt(0).toUpperCase()
+                      )}
                     </span>
                     <span className="font-bold text-xs text-slate-800">
                       {memberName}

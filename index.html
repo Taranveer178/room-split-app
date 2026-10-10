@@ -33,7 +33,68 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="RoomSplit" />
-    
+
+    <style>
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+      }
+      .launch-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 24px;
+        color: #fff;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        background: radial-gradient(circle at 50% 38%, #3b82f6 0%, #1d4ed8 34%, #172554 100%);
+      }
+      .launch-screen__logo {
+        width: clamp(144px, 44vw, 208px);
+        height: clamp(144px, 44vw, 208px);
+        object-fit: contain;
+        border-radius: 28%;
+        filter: drop-shadow(0 18px 32px rgb(0 0 0 / 25%));
+        animation: launch-breathe 2s ease-in-out infinite;
+      }
+      .launch-screen__title {
+        margin: 24px 0 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .launch-screen__subtitle {
+        margin: 8px 0 0;
+        color: rgb(255 255 255 / 82%);
+        font-size: 14px;
+      }
+      .launch-screen__spinner {
+        width: 26px;
+        height: 26px;
+        margin-top: 32px;
+        border: 3px solid rgb(255 255 255 / 32%);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: launch-spin 0.8s linear infinite;
+      }
+      @keyframes launch-breathe {
+        50% { transform: scale(1.035); }
+      }
+      @keyframes launch-spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .launch-screen__logo, .launch-screen__spinner {
+          animation: none;
+        }
+      }
+    </style>
+
     <!-- Favicon -->
     <link rel="icon" type="image/webp" href="/src/assets/roomsplit-icon.webp" />
 
@@ -47,6 +108,12 @@
   </head>
   <body class="bg-slate-100 font-sans antialiased text-slate-800 selection:bg-indigo-500 selection:text-white">
     <div id="root">
+      <main class="launch-screen" role="status" aria-label="Loading RoomSplit">
+        <img class="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
+        <h1 class="launch-screen__title">RoomSplit</h1>
+        <p class="launch-screen__subtitle">Split bills. Stay balanced.</p>
+        <span class="launch-screen__spinner" aria-hidden="true"></span>
+      </main>
     </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

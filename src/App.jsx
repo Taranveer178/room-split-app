@@ -29,7 +29,6 @@ import {
   setPushNotificationActionHandler,
   unregisterPushNotifications,
 } from './utils/notifications';
-import roomsplitIcon from './assets/roomsplit-icon.webp';
 
 const getGroupSlug = (name, fallback = 'group') => {
   const slug = name
@@ -585,12 +584,12 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="w-full h-[100dvh] flex flex-col items-center justify-center bg-slate-50">
-        <div className="relative flex items-center justify-center mb-4">
-          <img src={roomsplitIcon} alt="RoomSplit" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-contain animate-pulse" />
-        </div>
-        <p className="text-slate-600 font-semibold text-sm">RoomSplit</p>
-      </div>
+      <main className="launch-screen" role="status" aria-label="Loading RoomSplit">
+        <img className="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
+        <h1 className="launch-screen__title">RoomSplit</h1>
+        <p className="launch-screen__subtitle">Split bills. Stay balanced.</p>
+        <span className="launch-screen__spinner" aria-hidden="true" />
+      </main>
     );
   }
 

@@ -14,10 +14,12 @@ import {
   Link, 
   Share2, 
   QrCode, 
-  UserPlus 
+  UserPlus,
+  ImagePlus
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { calculateSettlements, GROUP_DELETE_BALANCE_TOLERANCE } from '../../utils/settlement';
+import { compressImageFile } from '../../utils/compressImage';
 
 export default function MembersTab({ 
   group, 
@@ -34,6 +36,7 @@ export default function MembersTab({
   const [isEditingName, setIsEditingName] = useState(false);
   const [newGroupName, setNewGroupName] = useState(group.name || '');
   const [savingName, setSavingName] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
   const [leaving, setLeaving] = useState(false);
   
   // Invite modal state
@@ -135,6 +138,35 @@ export default function MembersTab({
     }
   };
 
+  const handleGroupImageChange = async (event) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+
+    setSavingImage(true);
+    try {
+      const imageDataUrl = await compressImageFile(file);
+      await onUpdateGroup({ ...group, imageDataUrl });
+      showToast('Group image updated!');
+    } catch (error) {
+      showToast(error.message || 'Could not update group image.', 'error');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
+  const handleRemoveGroupImage = async () => {
+    setSavingImage(true);
+    try {
+      await onUpdateGroup({ ...group, imageDataUrl: '' });
+      showToast('Group image removed.');
+    } catch (error) {
+      showToast(error.message || 'Could not update group image.', 'error');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
   const handleExitGroup = async () => {
     if (hasMyOutstandingBalance) {
       showToast('Settle your balance before leaving the group.', 'error');
@@ -176,8 +208,12 @@ export default function MembersTab({
           
           <div className="flex items-center gap-3.5 flex-1 min-w-0">
             {/* Space Avatar Initial */}
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md shadow-blue-500/20 flex-shrink-0">
-              {group.name ? group.name.charAt(0).toUpperCase() : <Layers size={22} />}
+            <div className="w-12 h-12 overflow-hidden rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md shadow-blue-500/20 flex-shrink-0">
+              {group.imageDataUrl ? (
+                <img src={group.imageDataUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                group.name ? group.name.charAt(0).toUpperCase() : <Layers size={22} />
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -233,6 +269,30 @@ export default function MembersTab({
             </button>
           )}
 
+        </div>
+        <div className="relative z-10 mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <label className={`inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors ${savingImage ? 'cursor-wait opacity-60' : 'cursor-pointer hover:bg-slate-50'}`}>
+            <ImagePlus size={15} />
+            {savingImage ? 'Saving image…' : group.imageDataUrl ? 'Change group image' : 'Add group image'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleGroupImageChange}
+              disabled={savingImage}
+              className="sr-only"
+            />
+          </label>
+          {group.imageDataUrl && (
+            <button
+              type="button"
+              onClick={handleRemoveGroupImage}
+              disabled={savingImage}
+              className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-50"
+            >
+              Remove image
+            </button>
+          )}
+          <span className="text-[11px] text-slate-400">Compressed before saving.</span>
         </div>
       </div>
 

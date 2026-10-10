@@ -235,8 +235,12 @@ export default function Dashboard({ user, groups, notifications, expenses = [], 
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-xl sm:text-2xl border border-blue-200/50 shadow-inner">
-                            {group.name.charAt(0).toUpperCase()}
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-xl sm:text-2xl border border-blue-200/50 shadow-inner">
+                            {group.imageDataUrl ? (
+                              <img src={group.imageDataUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              group.name.charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div>
                             <h3 className="font-bold text-slate-800 text-base sm:text-lg leading-tight">{group.name}</h3>
