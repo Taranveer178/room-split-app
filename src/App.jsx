@@ -586,7 +586,9 @@ export default function App() {
   if (loading) {
     return (
       <main className="launch-screen" role="status" aria-label="Loading RoomSplit">
-        <img className="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
+        <div className="launch-screen__logo-frame">
+          <img className="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
+        </div>
         <h1 className="launch-screen__title">RoomSplit</h1>
         <p className="launch-screen__subtitle">Split bills. Stay balanced.</p>
         <span className="launch-screen__spinner" aria-hidden="true" />

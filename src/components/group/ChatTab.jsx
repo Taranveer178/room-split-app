@@ -69,8 +69,73 @@ const MAX_BATCH_MESSAGES = 500;
 const TYPING_IDLE_DELAY = 1800;
 const TYPING_UPDATE_INTERVAL = 1500;
 const TYPING_EXPIRY = 5000;
+const LINK_PATTERN = /https?:\/\/[^\s<>{}\x5B\x5D"']+|www\.[^\s<>{}\x5B\x5D"']+|(?<![@\w.-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d+)?(?:[/?#][^\s<>{}\x5B\x5D"']*)?/gi;
+const TRAILING_LINK_PUNCTUATION = /[.,!?;:)}\]]+$/;
+const linkPreviewCache = new Map();
 
 const getTimestamp = () => Date.now();
+
+const extractLinks = (text = '') => {
+  const links = [];
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const linkText = match[0].replace(TRAILING_LINK_PUNCTUATION, '');
+    const url = /^https?:\/\//i.test(linkText) ? linkText : `https://${linkText}`;
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        links.push({ text: linkText, url: parsedUrl.href });
+      }
+    } catch {
+      // Ignore malformed URL text rather than rendering an unsafe link.
+    }
+  }
+  return links;
+};
+
+const renderLinkedText = (text = '') => {
+  const parts = [];
+  let lastIndex = 0;
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const linkText = match[0].replace(TRAILING_LINK_PUNCTUATION, '');
+    if (!linkText) continue;
+    const startIndex = match.index;
+    const endIndex = startIndex + linkText.length;
+    if (startIndex > lastIndex) parts.push(text.slice(lastIndex, startIndex));
+    const url = /^https?:\/\//i.test(linkText) ? linkText : `https://${linkText}`;
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        parts.push(linkText);
+      } else {
+        parts.push(
+          <a
+            key={`${startIndex}-${linkText}`}
+            href={parsedUrl.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.stopPropagation()}
+            className="break-all font-semibold underline decoration-current/50 underline-offset-2 hover:decoration-current"
+          >
+            {linkText}
+          </a>
+        );
+      }
+    } catch {
+      parts.push(linkText);
+    }
+    lastIndex = endIndex;
+    const punctuation = match[0].slice(linkText.length);
+    if (punctuation) {
+      parts.push(punctuation);
+      lastIndex += punctuation.length;
+    }
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+};
 
 const isOnlyEmojis = (str) => {
   if (!str) return false;
@@ -80,6 +145,92 @@ const isOnlyEmojis = (str) => {
   const characters = Array.from(trimmed.replace(/\s+/g, ''));
   return characters.length >= 1 && characters.length <= 4;
 };
+
+function LinkPreview({ url, isMe }) {
+  const [preview, setPreview] = useState(() => linkPreviewCache.get(url) || null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const cachedPreview = linkPreviewCache.get(url);
+    const previewRequest = cachedPreview
+      ? Promise.resolve(cachedPreview)
+      : fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { signal: controller.signal })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`Link preview request failed (${response.status}).`);
+          return response.json();
+        })
+        .then((data) => {
+          linkPreviewCache.set(url, data);
+          return data;
+        });
+
+    previewRequest.then(setPreview)
+      .catch((error) => {
+        if (error.name !== 'AbortError') {
+          console.error('Could not load shared link preview:', error);
+        }
+      });
+
+    return () => controller.abort();
+  }, [url]);
+
+  const hostname = new URL(preview?.url || url).hostname;
+  const displayPreview = preview || {
+    siteName: hostname,
+    title: '',
+    description: '',
+    image: '',
+  };
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.stopPropagation()}
+      className={`mt-2 block max-w-md overflow-hidden rounded-xl border transition-colors ${
+        isMe
+          ? 'border-white/20 bg-slate-950/10 hover:bg-slate-950/15'
+          : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+      }`}
+    >
+      {displayPreview.image && (
+        <img
+          src={displayPreview.image}
+          alt=""
+          loading="lazy"
+          className="max-h-48 w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+      )}
+      <span className="block px-3 py-2">
+        <span className={`block truncate text-[10px] font-semibold uppercase tracking-wide ${isMe ? 'text-sky-100/80' : 'text-slate-400'}`}>
+          {displayPreview.siteName || hostname}
+        </span>
+        {displayPreview.title && (
+          <span className="mt-0.5 block line-clamp-2 text-xs font-bold">
+            {displayPreview.title}
+          </span>
+        )}
+        {displayPreview.description && (
+          <span className={`mt-0.5 block line-clamp-2 text-[11px] ${isMe ? 'text-sky-50/80' : 'text-slate-500'}`}>
+            {displayPreview.description}
+          </span>
+        )}
+        {!preview && (
+          <span className={`mt-0.5 block break-all text-[11px] ${isMe ? 'text-sky-50/80' : 'text-slate-500'}`}>
+            {url}
+          </span>
+        )}
+      </span>
+    </a>
+  );
+}
 
 export default function ChatTab({ group, groups = [], currentUser, users, showToast }) {
   const [messages, setMessages] = useState([]);
@@ -943,6 +1094,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               const isFirstOfCluster = !prevMsg || prevMsg.senderId !== msg.senderId || showDateDivider;
               const isDeleted = msg.isDeletedForEveryone;
               const onlyEmoji = !isDeleted && !msg.attachmentData && !msg.mediaData && msg.type !== 'sticker' && isOnlyEmojis(msg.text);
+              const messageLinks = !isDeleted && msg.text ? extractLinks(msg.text) : [];
 
               const isSelected = selectedMessageIds.has(msg.id) && !msg.isDeletedForEveryone;
 
@@ -1085,8 +1237,11 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                             ) : msg.text ? (
                               <div className="px-3 py-1.5 text-[13.5px] leading-relaxed">
                                 <span className="whitespace-pre-wrap font-normal break-words select-text mr-1.5">
-                                  {msg.text}
+                                  {renderLinkedText(msg.text)}
                                 </span>
+                                {messageLinks.slice(0, 2).map(({ url }) => (
+                                  <LinkPreview key={url} url={url} isMe={isMe} />
+                                ))}
                                 
                                 <span className={`inline-flex items-center gap-0.5 text-[9.5px] font-semibold select-none float-right ml-1.5 mt-1 self-end ${
                                   isMe ? 'text-sky-100/90' : 'text-slate-400'

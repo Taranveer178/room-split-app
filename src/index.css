@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+::selection,
+*::selection {
+	background-color: transparent !important;
+	color: inherit !important;
+	text-shadow: none !important;
+}
+
+::-moz-selection,
+*::-moz-selection {
+	background-color: transparent !important;
+	color: inherit !important;
+	text-shadow: none !important;
+}
+
+* {
+	-webkit-tap-highlight-color: transparent;
+}
+
 .breakdown-scrollbar {
 	scrollbar-width: none;
 	-ms-overflow-style: none;
