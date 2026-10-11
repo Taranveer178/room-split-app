@@ -17,7 +17,9 @@ import {
   Users, 
   CornerUpRight,
   CheckSquare,
-  Check
+  Check,
+  Search,
+  Loader2
 } from 'lucide-react';
 import { 
   collection, 
@@ -29,9 +31,9 @@ import {
   updateDoc, 
   doc, 
   arrayUnion, 
-  runTransaction,
-  serverTimestamp,
-  writeBatch
+  runTransaction, 
+  serverTimestamp, 
+  writeBatch 
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { triggerPushNotification } from '../../utils/notifications';
@@ -43,22 +45,30 @@ const EMOJI_CATEGORIES = {
   Finance: ['💰', '🪙', '💵', '💶', '💷', '💳', '🧾', '🛒', '🛍️', '📈', '📉', '💸', '🤑', '💎', '🏦', '💹']
 };
 
-const STICKER_PACKS = {
-  Reactions: ['🥳', '💖', '🫶', '🤝', '💯', '🚀', '🔥', '✨', '🎉', '👏', '🙌', '⭐'],
-  'Food & Chill': ['🍕', '🍔', '🍟', '🧋', '☕', '🍰', '🍜', '🍩', '🥑', '🌮', '🍻', '🍿'],
-  'Cute Animals': ['🐱', '🐶', '🐼', '🐻', '🐰', '🦊', '🐨', '🐯', '🦁', '🐸', '🐵', '🦄'],
-  Money: ['💸', '🤑', '💳', '🧾', '💰', '📉', '📈', '🪙', '💎', '🏦', '⚖️', '🛒']
-};
+const COOL_STICKERS = [
+  { id: 'stk_1', title: 'Party Cat', tags: ['party', 'dance', 'celebrate', 'cat', 'fun'], url: 'https://media.giphy.com/media/unQ3IJU2RG7DO/giphy.gif' },
+  { id: 'stk_2', title: 'Dancing Doge', tags: ['dog', 'dance', 'doge', 'happy', 'cool'], url: 'https://media.giphy.com/media/VcAUSYAmaclya5cxJB/giphy.gif' },
+  { id: 'stk_3', title: 'Popcat', tags: ['pop', 'cat', 'meme', 'eat', 'funny'], url: 'https://media.giphy.com/media/OAHb6Z1S8n2M64w6t5/giphy.gif' },
+  { id: 'stk_4', title: 'Pepe Hyped', tags: ['pepe', 'hype', 'yes', 'party', 'win'], url: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif' },
+  { id: 'stk_5', title: 'Money Flex', tags: ['money', 'cash', 'rich', 'bill', 'pay'], url: 'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.gif' },
+  { id: 'stk_6', title: 'Boba Sip', tags: ['drink', 'boba', 'tea', 'chill', 'sip'], url: 'https://media.giphy.com/media/oZEBLugoTdzxK/giphy.gif' },
+  { id: 'stk_7', title: 'Mind Blown', tags: ['wow', 'shock', 'brain', 'mindblown'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
+  { id: 'stk_8', title: 'Love Heart', tags: ['love', 'heart', 'kiss', 'cute'], url: 'https://media.giphy.com/media/TdfyKrN7HGTIY/giphy.gif' },
+  { id: 'stk_9', title: 'Thumbs Up Guy', tags: ['good', 'ok', 'thumbsup', 'cool', 'yes'], url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
+  { id: 'stk_10', title: 'Facepalm', tags: ['facepalm', 'no', 'why', 'sad', 'cringe'], url: 'https://media.giphy.com/media/xsF1FSDbjguis/giphy.gif' },
+  { id: 'stk_11', title: 'Fire Flame', tags: ['fire', 'hot', 'lit', 'dope'], url: 'https://media.giphy.com/media/QMHoU66sBXqqLqYvGO/giphy.gif' },
+  { id: 'stk_12', title: 'Deal Done Handshake', tags: ['deal', 'handshake', 'agree', 'settle'], url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
+];
 
-const POPULAR_GIFS = [
-  { id: '1', title: 'Thumbs Up', url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
-  { id: '2', title: 'Money Rain', url: 'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.gif' },
-  { id: '3', title: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
-  { id: '4', title: 'Celebrate', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif' },
-  { id: '5', title: 'Confused', url: 'https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif' },
-  { id: '6', title: 'Coffee Time', url: 'https://media.giphy.com/media/oZEBLugoTdzxK/giphy.gif' },
-  { id: '7', title: 'Calculating', url: 'https://media.giphy.com/media/BmmfETghGOPrW/giphy.gif' },
-  { id: '8', title: 'Deal Done', url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
+const DEFAULT_TRENDING_GIFS = [
+  { id: 'g1', title: 'Thumbs Up', url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
+  { id: 'g2', title: 'Money Rain', url: 'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.gif' },
+  { id: 'g3', title: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
+  { id: 'g4', title: 'Celebrate', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif' },
+  { id: 'g5', title: 'Confused', url: 'https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif' },
+  { id: 'g6', title: 'Coffee Time', url: 'https://media.giphy.com/media/oZEBLugoTdzxK/giphy.gif' },
+  { id: 'g7', title: 'Calculating', url: 'https://media.giphy.com/media/BmmfETghGOPrW/giphy.gif' },
+  { id: 'g8', title: 'Deal Done', url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
 ];
 
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
@@ -84,13 +94,15 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [typingNow, setTypingNow] = useState(0);
   const [input, setInput] = useState('');
   const [pickerTab, setPickerTab] = useState(null);
-  const [activeStickerPack, setActiveStickerPack] = useState('Reactions');
   const [activeEmojiCat, setActiveEmojiCat] = useState('Recent');
   const [selectedImage, setSelectedImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
 
-  // Context Menu State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gifResults, setGifResults] = useState(DEFAULT_TRENDING_GIFS);
+  const [isSearchingMedia, setIsSearchingMedia] = useState(false);
+
   const [activeContextMenu, setActiveContextMenu] = useState(null);
   const [deleteDialogMessages, setDeleteDialogMessages] = useState(null);
   const [deleteError, setDeleteError] = useState('');
@@ -101,7 +113,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  // WhatsApp-style Multi-Selection Mode
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
 
@@ -123,6 +134,51 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const lastTypingWriteRef = useRef(0);
   const typingErrorShownRef = useRef(false);
 
+  const filteredStickers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return COOL_STICKERS;
+    return COOL_STICKERS.filter(s => 
+      s.title.toLowerCase().includes(q) || s.tags.some(t => t.includes(q))
+    );
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (pickerTab !== 'gif') return;
+    
+    const term = searchQuery.trim();
+    if (!term) {
+      setGifResults(DEFAULT_TRENDING_GIFS);
+      setIsSearchingMedia(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingMedia(true);
+      try {
+        const endpoint = `https://api.giphy.com/v1/gifs/search?api_key=3eFLfhAl2F5nlqvjh9umoMyd9CGZRi62&q=${encodeURIComponent(term)}&limit=16&rating=g`;
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
+          const parsed = data.data.map(item => ({
+            id: item.id,
+            title: item.title || 'GIF',
+            url: item.images?.downsized_medium?.url || item.images?.fixed_height?.url || item.images?.original?.url
+          })).filter(item => Boolean(item.url));
+          setGifResults(parsed.length > 0 ? parsed : DEFAULT_TRENDING_GIFS);
+        } else {
+          setGifResults(DEFAULT_TRENDING_GIFS);
+        }
+      } catch (err) {
+        console.warn('GIF search error:', err);
+        setGifResults(DEFAULT_TRENDING_GIFS);
+      } finally {
+        setIsSearchingMedia(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, pickerTab]);
+
   const reportTypingError = (error, message) => {
     console.error('Chat typing status error:', error);
     if (typingErrorShownRef.current) return;
@@ -142,7 +198,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       .catch(() => {})
       .then(() => updateDoc(typingDocRef, { typingExpiresAt: 0 }))
       .catch((error) => {
-        reportTypingError(error, 'Could not clear typing status. It will disappear shortly.');
+        reportTypingError(error, 'Could not clear typing status.');
       });
   };
 
@@ -173,7 +229,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         typingErrorShownRef.current = false;
       })
       .catch((error) => {
-        reportTypingError(error, 'Could not share your typing status. Please try again.');
+        reportTypingError(error, 'Could not share typing status.');
       });
   };
 
@@ -184,7 +240,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         .catch(() => {})
         .then(() => updateDoc(typingDocRef, { typingExpiresAt: 0 }))
         .catch((error) => {
-          console.error('Could not clear typing status during chat cleanup:', error);
+          console.error('Could not clear typing status:', error);
         });
       typingActiveRef.current = false;
     }
@@ -337,7 +393,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     });
   }, [messages, currentUser.id]);
 
-  // Dynamic Context Menu Positioning
   const triggerContextMenu = (targetEl, msg, isMe) => {
     if (msg.isDeletedForEveryone || isSelectMode) return;
     const rect = targetEl.getBoundingClientRect();
@@ -408,7 +463,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     setSelectedMessageIds(new Set());
   };
 
-  // WhatsApp-style Reaction Handler
   const handleToggleReaction = async (message, emoji) => {
     if (!db || !message?.id || !currentUser?.id || message.isDeletedForEveryone) return;
     setActiveContextMenu(null);
@@ -425,7 +479,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       });
     } catch (err) {
       console.error('Error toggling reaction:', err);
-      showToast?.('Could not save your reaction. Please try again.', 'error');
+      showToast?.('Could not save reaction.', 'error');
     }
   };
 
@@ -488,9 +542,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     }
   };
 
-  const handleSendGif = async (gifUrl) => {
+  const handleSendMediaGif = async (url) => {
     setPickerTab(null);
-    if (!db) return;
+    if (!db || !url) return;
     try {
       await addDoc(collection(db, 'messages'), {
         groupId: group.id,
@@ -498,26 +552,26 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         senderName: currentUser.username,
         text: '',
         attachmentType: 'gif',
-        attachmentName: 'reaction.gif',
-        attachmentData: gifUrl,
+        attachmentName: 'media.gif',
+        attachmentData: url,
         timestamp: getTimestamp(),
         createdAt: serverTimestamp(),
         deletedFor: [],
         reactions: {}
       });
     } catch (error) {
-      console.error('Error sending gif:', error);
-      setAttachmentError('GIF could not be sent.');
+      console.error('Error sending media:', error);
+      setAttachmentError('Media could not be sent.');
     }
   };
 
-  // Keyboard Sticker / GIF & File Upload Handler
   const uploadFileBlob = async (file) => {
     if (!file || !db || uploading) return;
 
     setAttachmentError('');
     const lowerName = file.name ? file.name.toLowerCase() : 'image.png';
     const isGif = file.type === 'image/gif' || lowerName.endsWith('.gif');
+    const isWebp = file.type === 'image/webp' || lowerName.endsWith('.webp');
     const isImage = file.type.startsWith('image/') && !isGif;
     const isVideo = file.type.startsWith('video/');
     const isAudio = file.type.startsWith('audio/');
@@ -527,12 +581,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       || file.type === 'text/plain'
       || file.type === 'text/csv';
 
-    if (!isImage && !isGif && !isVideo && !isAudio && !isDocument) {
-      setAttachmentError('Choose an image, video, audio, PDF, text, or file.');
+    if (!isImage && !isGif && !isWebp && !isVideo && !isAudio && !isDocument) {
+      setAttachmentError('File format not supported.');
       return;
     }
-    if (!isImage && file.size > 450 * 1024) {
-      setAttachmentError('Files must be 450 KB or smaller.');
+    if (!isImage && file.size > 800 * 1024) {
+      setAttachmentError('Files must be 800 KB or smaller.');
       return;
     }
     if (isImage && file.size > 8 * 1024 * 1024) {
@@ -543,13 +597,13 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     setUploading(true);
     try {
       let attachmentData;
-      if (isImage) {
+      if (isImage && !isWebp) {
         const objectUrl = URL.createObjectURL(file);
         try {
           const image = await new Promise((resolve, reject) => {
             const loadedImage = new Image();
             loadedImage.onload = () => resolve(loadedImage);
-            loadedImage.onerror = () => reject(new Error('Could not load this image.'));
+            loadedImage.onerror = () => reject(new Error('Could not process image.'));
             loadedImage.src = objectUrl;
           });
           const scale = Math.min(1, 960 / Math.max(image.width, image.height));
@@ -557,7 +611,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
           canvas.width = Math.max(1, Math.round(image.width * scale));
           canvas.height = Math.max(1, Math.round(image.height * scale));
           const context = canvas.getContext('2d');
-          if (!context) throw new Error('Could not process this image.');
+          if (!context) throw new Error('Could not process canvas.');
 
           for (let attempt = 0; attempt < 4; attempt += 1) {
             context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -569,14 +623,11 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         } finally {
           URL.revokeObjectURL(objectUrl);
         }
-        if (attachmentData.length > 640 * 1024) {
-          throw new Error('This image is still too large after compression. Choose another image.');
-        }
       } else {
         attachmentData = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('Could not read this file.'));
+          reader.onerror = () => reject(new Error('Could not read file.'));
           reader.readAsDataURL(file);
         });
       }
@@ -588,7 +639,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         senderName: currentUser.username,
         text: '',
         attachmentType,
-        attachmentName: file.name || (isGif ? 'sticker.gif' : 'image.png'),
+        attachmentName: file.name || (isGif ? 'sticker.gif' : 'keyboard-media.png'),
         attachmentMimeType: isImage ? 'image/jpeg' : file.type || 'application/octet-stream',
         attachmentData,
         timestamp: getTimestamp(),
@@ -598,7 +649,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       });
     } catch (error) {
       console.error('Error uploading chat attachment:', error);
-      setAttachmentError(error.message || 'Could not send this file.');
+      setAttachmentError(error.message || 'Could not send this media.');
     } finally {
       setUploading(false);
     }
@@ -610,19 +661,29 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     if (file) uploadFileBlob(file);
   };
 
-  // Keyboard Gboard/iOS Sticker and GIF Paste Interceptor
   const handleInputPaste = (e) => {
+    const files = e.clipboardData?.files;
     const items = e.clipboardData?.items;
-    if (!items) return;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.indexOf('image') !== -1) {
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
         e.preventDefault();
-        const blob = item.getAsFile();
-        if (blob) {
-          uploadFileBlob(blob);
-          return;
+        uploadFileBlob(file);
+        return;
+      }
+    }
+
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          if (blob) {
+            uploadFileBlob(blob);
+            return;
+          }
         }
       }
     }
@@ -705,7 +766,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       exitSelectMode();
     } catch (err) {
       console.error('Error deleting messages for me:', err);
-      setDeleteError('Could not delete selected messages. Please try again.');
+      setDeleteError('Could not delete selected messages.');
     } finally {
       setDeletingMessage(false);
     }
@@ -748,7 +809,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
       exitSelectMode();
     } catch (err) {
       console.error('Error deleting messages for everyone:', err);
-      setDeleteError('Could not delete selected messages. Please try again.');
+      setDeleteError('Could not delete selected messages.');
     } finally {
       setDeletingMessage(false);
     }
@@ -839,7 +900,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
           </div>
         </div>
       ) : (
-        /* Floating Clear Chat Icon Button */
         visibleMessages.length > 0 && (
           <button
             onClick={() => setShowClearConfirm(true)}
@@ -892,14 +952,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
 
               const isSelected = selectedMessageIds.has(msg.id) && !msg.isDeletedForEveryone;
 
-              // Message Reactions Array
               const reactionsMap = msg.reactions || {};
               const reactionEntries = Object.entries(reactionsMap);
               const hasReactions = reactionEntries.length > 0;
 
               return (
                 <div key={msg.id} className="w-full">
-                  {/* WhatsApp Style Date Separator */}
                   {showDateDivider && (
                     <div className="flex justify-center my-3.5">
                       <span className="px-3 py-1 text-[11px] font-bold text-slate-600 bg-white/95 backdrop-blur-md rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-slate-200/60 select-none">
@@ -908,9 +966,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                     </div>
                   )}
 
-                  {/* Message Bubble Row with dynamic bottom clearance when reactions exist */}
                   <div className={`flex items-end gap-2.5 ${hasReactions ? 'mb-3.5' : 'my-1'} ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    {/* WhatsApp-Style Selection Checkbox */}
                     {isSelectMode && (
                       <div 
                         onClick={() => handleBubbleClick(msg)}
@@ -945,14 +1001,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                                 : 'bg-white text-slate-800 border border-slate-200/70 rounded-2xl rounded-bl-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
                         }`}
                       >
-                        {/* Sender Name in Bubble */}
                         {!isMe && isFirstOfCluster && !isDeleted && !onlyEmoji && (
                           <div className="px-3 pt-2 text-[11px] font-black text-sky-600 tracking-wider uppercase">
                             {msg.senderName || sender.username}
                           </div>
                         )}
 
-                        {/* Message Content Body */}
                         {isDeleted ? (
                           <div className="flex items-center gap-1.5 text-xs py-0.5">
                             <Ban size={13} className="text-slate-400" />
@@ -960,7 +1014,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                             <span className="text-[10px] text-slate-400 ml-2 font-normal not-italic">{timeString}</span>
                           </div>
                         ) : onlyEmoji ? (
-                          /* Standalone Emoji Display */
                           <div className="flex flex-col items-center">
                             <span className="text-5xl py-0.5 leading-tight filter drop-shadow-sm select-none">
                               {msg.text}
@@ -979,7 +1032,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                               </div>
                             )}
 
-                            {/* WhatsApp-Style Media View */}
                             {(msg.attachmentData || msg.mediaData) && (
                               <div className="overflow-hidden rounded-xl p-1">
                                 {msg.attachmentType === 'image' || msg.attachmentType === 'gif' ? (
@@ -1026,7 +1078,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                               </div>
                             )}
 
-                            {/* Sticker Render */}
                             {msg.type === 'sticker' ? (
                               <div className="px-3 py-1">
                                 <span className="text-6xl leading-none select-none">{msg.text}</span>
@@ -1055,7 +1106,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                         )}
                       </div>
 
-                      {/* WhatsApp Style Inline Reaction Badge */}
                       {hasReactions && (
                         <div 
                           onClick={(e) => {
@@ -1105,15 +1155,12 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         </div>
       </div>
 
-      {/* ==================================================================== */}
-      {/* Blurred Liquid Glass Pop-up: Reaction Bar + Cloned Message + Context Window */}
-      {/* ==================================================================== */}
+      {/* Blurred Liquid Glass Pop-up Menu */}
       {activeContextMenu && createPortal(
         <div 
           className="fixed inset-0 z-[110] bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setActiveContextMenu(null)}
         >
-          {/* Stacked Options Container Anchored Directly Above or Below Bubble Coordinates */}
           <div 
             className="absolute flex flex-col gap-2 z-10 w-64 animate-in zoom-in-95 duration-200"
             style={{
@@ -1138,7 +1185,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               ))}
             </div>
 
-            {/* 2. Highlighted Cloned Message Preview */}
+            {/* Highlighted Message Preview */}
             <div className={`p-3 rounded-2xl shadow-xl border text-[13.5px] leading-relaxed break-words max-h-40 overflow-y-auto scrollbar-hide backdrop-blur-xl ${
               activeContextMenu.isMe
                 ? 'bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 text-white border-white/30 shadow-sky-500/20'
@@ -1168,7 +1215,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               )}
             </div>
 
-            {/* 3. iOS-Style Stacked Options Menu */}
+            {/* iOS-Style Stacked Options Menu */}
             <div className="overflow-hidden rounded-2xl bg-white/90 backdrop-blur-2xl shadow-2xl border border-white/70 divide-y divide-slate-100/90">
               {activeContextMenu.message.text && (
                 <button
@@ -1181,7 +1228,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 </button>
               )}
 
-              {/* Select Message Action */}
               <button
                 type="button"
                 onClick={() => startSelectMode(activeContextMenu.message)}
@@ -1191,7 +1237,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 <CheckSquare size={15} className="text-slate-400" />
               </button>
 
-              {/* Forward / Share Action */}
               <button
                 type="button"
                 onClick={() => {
@@ -1206,7 +1251,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 <Share2 size={15} className="text-slate-400" />
               </button>
 
-              {/* Delete Action */}
               <button
                 type="button"
                 onClick={() => {
@@ -1347,7 +1391,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         document.body
       )}
 
-      {/* Floating Liquid Glass Input Bar */}
+      {/* Floating Input Bar */}
       {!isSelectMode && (
         <div className="relative z-20 px-3 pb-6 sm:px-6 pt-2">
           {attachmentError && (
@@ -1356,14 +1400,17 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
             </div>
           )}
 
-          {/* Tabbed Emoji, Sticker & GIF Picker */}
+          {/* Tabbed Picker (Emoji, Cool Stickers, Giphy Search) */}
           {pickerTab && (
             <div className="max-w-3xl mx-auto mb-3 rounded-[28px] bg-white/95 backdrop-blur-2xl border border-white/80 p-3 shadow-2xl animate-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
-                    onClick={() => setPickerTab('emoji')}
+                    onClick={() => {
+                      setPickerTab('emoji');
+                      setSearchQuery('');
+                    }}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                       pickerTab === 'emoji' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
                     }`}
@@ -1372,7 +1419,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPickerTab('sticker')}
+                    onClick={() => {
+                      setPickerTab('sticker');
+                      setSearchQuery('');
+                    }}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                       pickerTab === 'sticker' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
                     }`}
@@ -1381,7 +1431,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPickerTab('gif')}
+                    onClick={() => {
+                      setPickerTab('gif');
+                      setSearchQuery('');
+                    }}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                       pickerTab === 'gif' ? 'bg-white text-sky-600 shadow-2xs' : 'text-slate-500'
                     }`}
@@ -1392,13 +1445,45 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
 
                 <button 
                   type="button" 
-                  onClick={() => setPickerTab(null)} 
-                  className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 bg-slate-100 transition-colors"
+                  onClick={() => {
+                    setPickerTab(null);
+                    setSearchQuery('');
+                  }} 
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 bg-slate-100 transition-colors"
                 >
-                  <X size={14} />
+                  <X size={15} />
                 </button>
               </div>
 
+              {/* Robust Search Input */}
+              {(pickerTab === 'sticker' || pickerTab === 'gif') && (
+                <div className="w-full flex-shrink-0 mb-3 px-0.5">
+                  <div className="relative w-full flex items-center">
+                    <Search 
+                      size={16} 
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" 
+                    />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={pickerTab === 'sticker' ? "Search stickers (cat, dance, pepe, chill...)" : "Search any GIF on Giphy..."}
+                      className="w-full min-w-0 h-10 pl-10 pr-9 text-xs font-medium border border-slate-200/90 rounded-xl bg-slate-50/90 text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-500/15 transition-all shadow-2xs"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/70 transition-colors z-10"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Emoji View */}
               {pickerTab === 'emoji' && (
                 <>
                   <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
@@ -1430,58 +1515,76 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 </>
               )}
 
+              {/* Cool Stickers View with Search */}
               {pickerTab === 'sticker' && (
-                <>
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-2 scrollbar-hide text-[11px] font-bold">
-                    {Object.keys(STICKER_PACKS).map(pack => (
-                      <button
-                        key={pack}
-                        type="button"
-                        onClick={() => setActiveStickerPack(pack)}
-                        className={`px-2.5 py-0.5 rounded-full flex-shrink-0 transition-all ${
-                          activeStickerPack === pack ? 'bg-sky-50 text-sky-600 border border-sky-200' : 'text-slate-500'
-                        }`}
-                      >
-                        {pack}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto scrollbar-hide p-1">
-                    {STICKER_PACKS[activeStickerPack]?.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => handleSendSticker(item)}
-                        className="text-3xl aspect-square rounded-2xl hover:bg-sky-50 active:scale-90 transition-all flex items-center justify-center"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </>
+                <div className="min-h-0 max-h-48 overflow-y-auto overflow-x-hidden p-1 scrollbar-hide [-webkit-overflow-scrolling:touch]">
+                  {filteredStickers.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-slate-400">
+                      No stickers found. Try &quot;cat&quot;, &quot;dance&quot;, &quot;money&quot;, &quot;party&quot;.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {filteredStickers.map((stk) => (
+                        <button
+                          key={stk.id}
+                          type="button"
+                          onClick={() => handleSendMediaGif(stk.url)}
+                          className="relative flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-50 hover:bg-sky-50/50 border border-slate-200/60 active:scale-95 transition-all group"
+                        >
+                          <img 
+                            src={stk.url} 
+                            alt={stk.title} 
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-contain" 
+                            loading="lazy" 
+                          />
+                          <span className="mt-1 text-[10px] font-semibold text-slate-500 truncate w-full text-center">
+                            {stk.title}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
+              {/* Live GIFs View with Search */}
               {pickerTab === 'gif' && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto scrollbar-hide p-1">
-                  {POPULAR_GIFS.map((gif) => (
-                    <button
-                      key={gif.id}
-                      type="button"
-                      onClick={() => handleSendGif(gif.url)}
-                      className="relative rounded-xl overflow-hidden aspect-video border border-slate-200 hover:border-sky-400 active:scale-95 transition-all group"
-                    >
-                      <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-bold">
-                        {gif.title}
-                      </span>
-                    </button>
-                  ))}
+                <div className="min-h-0 max-h-48 overflow-y-auto overflow-x-hidden p-1 scrollbar-hide [-webkit-overflow-scrolling:touch]">
+                  {isSearchingMedia ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-slate-400 text-xs">
+                      <Loader2 size={20} className="animate-spin text-sky-500 mb-1.5" />
+                      <span>Searching GIFs…</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {gifResults.map((gif) => (
+                        <button
+                          key={gif.id}
+                          type="button"
+                          onClick={() => handleSendMediaGif(gif.url)}
+                          className="relative w-full h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/90 active:scale-95 transition-transform group"
+                        >
+                          <img 
+                            src={gif.url} 
+                            alt={gif.title} 
+                            className="w-full h-full object-cover" 
+                            loading="lazy" 
+                          />
+                          {gif.title && (
+                            <span className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs rounded text-[9px] text-white font-semibold truncate text-left pointer-events-none">
+                              {gif.title}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Input Capsule with onPaste for Keyboard GIFs & Stickers */}
+          {/* Input Capsule */}
           <form 
             onSubmit={handleSend} 
             className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.12)] transition-all focus-within:ring-2 focus-within:ring-sky-500/20"
@@ -1508,7 +1611,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               type="button"
               onClick={() => setPickerTab((curr) => curr === 'emoji' ? null : 'emoji')}
               className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all active:scale-95 ${
-                pickerTab === 'emoji' ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:text-sky-600 hover:bg-white'
+                pickerTab ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:text-sky-600 hover:bg-white'
               }`}
               title="Emoji / Stickers / GIFs"
             >

@@ -240,7 +240,7 @@ export default function App() {
     let isCancelled = false;
     const setupAuthAndSync = async () => {
       try {
-        await signInAnonymously(auth);
+        if (!auth.currentUser) await signInAnonymously(auth);
         if (isCancelled) return;
         unsubscribers.push(onSnapshot(collection(db, 'users'), (snapshot) => {
           if (!snapshot.empty) {
@@ -386,7 +386,7 @@ export default function App() {
 
   const saveUser = async (newUser) => {
     if (db) {
-      await setDoc(doc(db, 'users', newUser.id), newUser);
+      await setDoc(doc(db, 'users', newUser.id), newUser, { merge: true });
       return;
     }
     setUsers((previous) => {

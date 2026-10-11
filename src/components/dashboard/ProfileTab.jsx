@@ -14,7 +14,7 @@ import {
   Camera,
   Bell
 } from 'lucide-react';
-import { updateProfile } from 'firebase/auth';
+import { updateEmail, updatePassword, updateProfile } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { Button, Card, Input } from '../common/UI';
 import { requestNotificationPermission, triggerPushNotification } from '../../utils/notifications';
@@ -118,7 +118,11 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
         firestoreUpdates.username = name.trim();
       }
       if (upiId.trim() !== (user.upiId || '')) firestoreUpdates.upiId = upiId.trim();
-      if (email.trim() !== (user.email || '')) firestoreUpdates.email = email.trim();
+      if (email.trim().toLowerCase() !== (user.email || '').toLowerCase()) {
+        const nextEmail = email.trim().toLowerCase();
+        if (firebaseUser && !firebaseUser.isAnonymous) await updateEmail(firebaseUser, nextEmail);
+        firestoreUpdates.email = nextEmail;
+      }
       if (photoDataUrl !== (user.photoDataUrl || '')) firestoreUpdates.photoDataUrl = photoDataUrl;
 
       if (Object.keys(firestoreUpdates).length > 0) {
@@ -130,7 +134,12 @@ export default function ProfileTab({ user, onUpdateUser, showToast }) {
       }
 
       if (password.trim()) {
-        if (typeof onUpdateUser === 'function') await onUpdateUser(user.id, { password });
+        if (firebaseUser && !firebaseUser.isAnonymous) {
+          await updatePassword(firebaseUser, password);
+          if (typeof onUpdateUser === 'function') await onUpdateUser(user.id, { password: '' });
+        } else if (typeof onUpdateUser === 'function') {
+          await onUpdateUser(user.id, { password });
+        }
         setPassword('');
       }
 
