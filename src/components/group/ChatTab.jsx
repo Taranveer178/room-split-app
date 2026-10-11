@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -45,19 +46,16 @@ const EMOJI_CATEGORIES = {
   Finance: ['💰', '🪙', '💵', '💶', '💷', '💳', '🧾', '🛒', '🛍️', '📈', '📉', '💸', '🤑', '💎', '🏦', '💹']
 };
 
-const COOL_STICKERS = [
-  { id: 'stk_1', title: 'Party Cat', tags: ['party', 'dance', 'celebrate', 'cat', 'fun'], url: 'https://media.giphy.com/media/unQ3IJU2RG7DO/giphy.gif' },
-  { id: 'stk_2', title: 'Dancing Doge', tags: ['dog', 'dance', 'doge', 'happy', 'cool'], url: 'https://media.giphy.com/media/VcAUSYAmaclya5cxJB/giphy.gif' },
-  { id: 'stk_3', title: 'Popcat', tags: ['pop', 'cat', 'meme', 'eat', 'funny'], url: 'https://media.giphy.com/media/OAHb6Z1S8n2M64w6t5/giphy.gif' },
-  { id: 'stk_4', title: 'Pepe Hyped', tags: ['pepe', 'hype', 'yes', 'party', 'win'], url: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif' },
-  { id: 'stk_5', title: 'Money Flex', tags: ['money', 'cash', 'rich', 'bill', 'pay'], url: 'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.gif' },
-  { id: 'stk_6', title: 'Boba Sip', tags: ['drink', 'boba', 'tea', 'chill', 'sip'], url: 'https://media.giphy.com/media/oZEBLugoTdzxK/giphy.gif' },
-  { id: 'stk_7', title: 'Mind Blown', tags: ['wow', 'shock', 'brain', 'mindblown'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
-  { id: 'stk_8', title: 'Love Heart', tags: ['love', 'heart', 'kiss', 'cute'], url: 'https://media.giphy.com/media/TdfyKrN7HGTIY/giphy.gif' },
-  { id: 'stk_9', title: 'Thumbs Up Guy', tags: ['good', 'ok', 'thumbsup', 'cool', 'yes'], url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
-  { id: 'stk_10', title: 'Facepalm', tags: ['facepalm', 'no', 'why', 'sad', 'cringe'], url: 'https://media.giphy.com/media/xsF1FSDbjguis/giphy.gif' },
-  { id: 'stk_11', title: 'Fire Flame', tags: ['fire', 'hot', 'lit', 'dope'], url: 'https://media.giphy.com/media/QMHoU66sBXqqLqYvGO/giphy.gif' },
-  { id: 'stk_12', title: 'Deal Done Handshake', tags: ['deal', 'handshake', 'agree', 'settle'], url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
+// Verified sticker defaults that do not block hotlinking
+const COOL_STICKERS_DEFAULT = [
+  { id: 'stk_1', title: 'Party Cat', tags: ['party', 'dance', 'cat'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/MDJ9IbxxvDUQM/giphy.gif' },
+  { id: 'stk_2', title: 'Dancing Doge', tags: ['dog', 'dance', 'happy'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/l3q2K5jinAlChoCLS/giphy.gif' },
+  { id: 'stk_3', title: 'Money Rain', tags: ['money', 'cash', 'rich'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3o6gDWzmAzrpi5DQU8/giphy.gif' },
+  { id: 'stk_4', title: 'Mind Blown', tags: ['wow', 'shock', 'brain'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/xT0xeJpnrWC4XWblEk/giphy.gif' },
+  { id: 'stk_5', title: 'Thumbs Up', tags: ['good', 'ok', 'yes'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3o7abKhOpu0NwenH3O/giphy.gif' },
+  { id: 'stk_6', title: 'Fire Flame', tags: ['fire', 'hot', 'lit'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/26tPoyDhjiJ2g7rEs/giphy.gif' },
+  { id: 'stk_7', title: 'Love Heart', tags: ['love', 'heart', 'cute'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3oEjI6SIIHBdRxXI40/giphy.gif' },
+  { id: 'stk_8', title: 'Handshake Deal', tags: ['deal', 'agree', 'settle'], url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWRoc2F4c2N5eTJndDN3eTRoMnZwN3FqOGU1ZXkyYmpndDVqMHBwaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/3o7TKSjRrfIPjeiVyM/giphy.gif' }
 ];
 
 const DEFAULT_TRENDING_GIFS = [
@@ -71,6 +69,7 @@ const DEFAULT_TRENDING_GIFS = [
   { id: 'g8', title: 'Deal Done', url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif' }
 ];
 
+const GIPHY_API_KEY = '3eFLfhAl2F5nlqvjh9umoMyd9CGZRi62';
 const QUICK_REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 const MAX_BATCH_MESSAGES = 500;
 const TYPING_IDLE_DELAY = 1800;
@@ -93,16 +92,19 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [typingMessages, setTypingMessages] = useState([]);
   const [typingNow, setTypingNow] = useState(0);
   const [input, setInput] = useState('');
-  const [pickerTab, setPickerTab] = useState(null);
+  const [pickerTab, setPickerTab] = useState(null); // 'emoji' | 'sticker' | 'gif'
   const [activeEmojiCat, setActiveEmojiCat] = useState('Recent');
   const [selectedImage, setSelectedImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
 
+  // Media Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [gifResults, setGifResults] = useState(DEFAULT_TRENDING_GIFS);
+  const [stickerResults, setStickerResults] = useState(COOL_STICKERS_DEFAULT);
   const [isSearchingMedia, setIsSearchingMedia] = useState(false);
 
+  // Context Menu State
   const [activeContextMenu, setActiveContextMenu] = useState(null);
   const [deleteDialogMessages, setDeleteDialogMessages] = useState(null);
   const [deleteError, setDeleteError] = useState('');
@@ -113,6 +115,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  // Multi-Selection Mode
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
 
@@ -134,20 +137,14 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
   const lastTypingWriteRef = useRef(0);
   const typingErrorShownRef = useRef(false);
 
-  const filteredStickers = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return COOL_STICKERS;
-    return COOL_STICKERS.filter(s => 
-      s.title.toLowerCase().includes(q) || s.tags.some(t => t.includes(q))
-    );
-  }, [searchQuery]);
-
+  // Live GIPHY API Query for both Stickers and GIFs
   useEffect(() => {
-    if (pickerTab !== 'gif') return;
+    if (pickerTab !== 'gif' && pickerTab !== 'sticker') return;
     
     const term = searchQuery.trim();
     if (!term) {
-      setGifResults(DEFAULT_TRENDING_GIFS);
+      if (pickerTab === 'gif') setGifResults(DEFAULT_TRENDING_GIFS);
+      if (pickerTab === 'sticker') setStickerResults(COOL_STICKERS_DEFAULT);
       setIsSearchingMedia(false);
       return;
     }
@@ -155,22 +152,25 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     const timer = setTimeout(async () => {
       setIsSearchingMedia(true);
       try {
-        const endpoint = `https://api.giphy.com/v1/gifs/search?api_key=3eFLfhAl2F5nlqvjh9umoMyd9CGZRi62&q=${encodeURIComponent(term)}&limit=16&rating=g`;
+        const typeEndpoint = pickerTab === 'sticker' ? 'stickers' : 'gifs';
+        const endpoint = `https://api.giphy.com/v1/${typeEndpoint}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(term)}&limit=16&rating=g`;
         const res = await fetch(endpoint);
         const data = await res.json();
         if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
           const parsed = data.data.map(item => ({
             id: item.id,
-            title: item.title || 'GIF',
-            url: item.images?.downsized_medium?.url || item.images?.fixed_height?.url || item.images?.original?.url
+            title: item.title || (pickerTab === 'sticker' ? 'Sticker' : 'GIF'),
+            url: item.images?.fixed_width?.url || item.images?.downsized_medium?.url || item.images?.original?.url
           })).filter(item => Boolean(item.url));
-          setGifResults(parsed.length > 0 ? parsed : DEFAULT_TRENDING_GIFS);
-        } else {
-          setGifResults(DEFAULT_TRENDING_GIFS);
+
+          if (pickerTab === 'gif') {
+            setGifResults(parsed.length > 0 ? parsed : DEFAULT_TRENDING_GIFS);
+          } else {
+            setStickerResults(parsed.length > 0 ? parsed : COOL_STICKERS_DEFAULT);
+          }
         }
       } catch (err) {
-        console.warn('GIF search error:', err);
-        setGifResults(DEFAULT_TRENDING_GIFS);
+        console.warn('Media search error:', err);
       } finally {
         setIsSearchingMedia(false);
       }
@@ -521,27 +521,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     setInput((prev) => `${prev}${emoji}`);
   };
 
-  const handleSendSticker = async (sticker) => {
-    setPickerTab(null);
-    if (!db) return;
-    try {
-      await addDoc(collection(db, 'messages'), {
-        groupId: group.id,
-        senderId: currentUser.id,
-        senderName: currentUser.username,
-        text: sticker,
-        type: 'sticker',
-        timestamp: getTimestamp(),
-        createdAt: serverTimestamp(),
-        deletedFor: [],
-        reactions: {}
-      });
-    } catch (error) {
-      console.error('Error sending sticker:', error);
-      setAttachmentError('Sticker could not be sent.');
-    }
-  };
-
   const handleSendMediaGif = async (url) => {
     setPickerTab(null);
     if (!db || !url) return;
@@ -565,6 +544,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     }
   };
 
+  // Keyboard and File Upload Pipeline
   const uploadFileBlob = async (file) => {
     if (!file || !db || uploading) return;
 
@@ -661,6 +641,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     if (file) uploadFileBlob(file);
   };
 
+  // Mobile Keyboard Sticker & GIF Paste Interceptor
   const handleInputPaste = (e) => {
     const files = e.clipboardData?.files;
     const items = e.clipboardData?.items;
@@ -1171,7 +1152,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 1. Quick Emoji Reaction Pill Bar */}
+            {/* Quick Emoji Reaction Pill Bar */}
             <div className="flex items-center justify-between bg-white/85 backdrop-blur-2xl px-3.5 py-2 rounded-full shadow-2xl border border-white/70">
               {QUICK_REACTIONS.map((emoji) => (
                 <button
@@ -1185,7 +1166,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
               ))}
             </div>
 
-            {/* Highlighted Message Preview */}
+            {/* Cloned Highlighted Message Preview */}
             <div className={`p-3 rounded-2xl shadow-xl border text-[13.5px] leading-relaxed break-words max-h-40 overflow-y-auto scrollbar-hide backdrop-blur-xl ${
               activeContextMenu.isMe
                 ? 'bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 text-white border-white/30 shadow-sky-500/20'
@@ -1455,7 +1436,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 </button>
               </div>
 
-              {/* Robust Search Input */}
+              {/* Verified Search Input for Stickers & GIFs */}
               {(pickerTab === 'sticker' || pickerTab === 'gif') && (
                 <div className="w-full flex-shrink-0 mb-3 px-0.5">
                   <div className="relative w-full flex items-center">
@@ -1515,16 +1496,21 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                 </>
               )}
 
-              {/* Cool Stickers View with Search */}
+              {/* Live Stickers View with Search */}
               {pickerTab === 'sticker' && (
                 <div className="min-h-0 max-h-48 overflow-y-auto overflow-x-hidden p-1 scrollbar-hide [-webkit-overflow-scrolling:touch]">
-                  {filteredStickers.length === 0 ? (
+                  {isSearchingMedia ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-slate-400 text-xs">
+                      <Loader2 size={20} className="animate-spin text-sky-500 mb-1.5" />
+                      <span>Searching stickers…</span>
+                    </div>
+                  ) : stickerResults.length === 0 ? (
                     <div className="text-center py-8 text-xs text-slate-400">
-                      No stickers found. Try &quot;cat&quot;, &quot;dance&quot;, &quot;money&quot;, &quot;party&quot;.
+                      No stickers found. Try another query like &quot;cat&quot;, &quot;dance&quot;, &quot;money&quot;.
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {filteredStickers.map((stk) => (
+                      {stickerResults.map((stk) => (
                         <button
                           key={stk.id}
                           type="button"
@@ -1555,6 +1541,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
                       <Loader2 size={20} className="animate-spin text-sky-500 mb-1.5" />
                       <span>Searching GIFs…</span>
                     </div>
+                  ) : gifResults.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-slate-400">
+                      No GIFs found. Try another search.
+                    </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {gifResults.map((gif) => (
@@ -1584,7 +1574,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
             </div>
           )}
 
-          {/* Input Capsule */}
+          {/* Input Capsule with onPaste for Keyboard GIFs & Stickers */}
           <form 
             onSubmit={handleSend} 
             className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.12)] transition-all focus-within:ring-2 focus-within:ring-sky-500/20"
@@ -1785,3 +1775,4 @@ function VideoPlayer({ src, mimeType }) {
     </>
   );
 }
+
