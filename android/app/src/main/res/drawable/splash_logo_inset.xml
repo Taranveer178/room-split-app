@@ -6,10 +6,10 @@
         </shape>
     </item>
     <item
-        android:left="36dp"
-        android:top="36dp"
-        android:right="36dp"
-        android:bottom="36dp">
+        android:left="60dp"
+        android:top="60dp"
+        android:right="60dp"
+        android:bottom="60dp">
         <bitmap
             android:src="@drawable/splash_square_icon"
             android:gravity="center" />
