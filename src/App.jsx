@@ -106,6 +106,50 @@ function LaunchScreen() {
   );
 }
 
+function GroupLoadingSkeleton() {
+  return (
+    <main className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-slate-50" role="status" aria-label="Opening group">
+      <span className="sr-only">Loading group</span>
+      <header className="flex flex-shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-3 py-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-9 w-9 flex-shrink-0 animate-pulse rounded-full bg-slate-200" />
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="h-4 w-36 max-w-[42vw] animate-pulse rounded bg-slate-200" />
+            <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1 rounded-2xl bg-slate-100/70 p-1 sm:gap-2">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="h-9 w-9 animate-pulse rounded-xl bg-slate-200/80 sm:w-12" />
+          ))}
+        </div>
+      </header>
+      <section className="mx-auto w-full max-w-6xl flex-1 space-y-5 overflow-hidden p-4 md:p-8" aria-hidden="true">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 gap-2 overflow-hidden">
+            {['w-20', 'w-16', 'w-24'].map((width) => (
+              <div key={width} className={`${width} h-8 flex-shrink-0 animate-pulse rounded-full bg-slate-200/80`} />
+            ))}
+          </div>
+          <div className="h-8 w-20 flex-shrink-0 animate-pulse rounded-lg bg-slate-200/80" />
+        </div>
+        <div className="space-y-3">
+          {[0, 1, 2, 3, 4].map((item) => (
+            <div key={item} className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm">
+              <div className="h-11 w-11 flex-shrink-0 animate-pulse rounded-xl bg-slate-200/80" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-4 w-2/5 animate-pulse rounded bg-slate-200" />
+                <div className="h-3 w-3/5 animate-pulse rounded bg-slate-100" />
+              </div>
+              <div className="h-4 w-16 flex-shrink-0 animate-pulse rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 
 if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -685,11 +729,7 @@ export default function App() {
           showToast={showToast}
         />
       ) : currentView === 'group' && activeGroup ? (
-        <Suspense fallback={(
-          <main className="flex h-[100dvh] items-center justify-center bg-slate-50" role="status" aria-label="Opening group">
-            <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-slate-300 border-t-sky-600" aria-hidden="true" />
-          </main>
-        )}>
+        <Suspense fallback={<GroupLoadingSkeleton />}>
           <GroupView
             key={`${activeGroup.id}:${currentGroupInitialTab}`}
             group={activeGroup}
