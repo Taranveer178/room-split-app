@@ -128,7 +128,9 @@ export default function AddExpenseTab({
         });
 
         if (recipientNotifications.length > 0) {
-          await onSendNotification(recipientNotifications);
+          onSendNotification(recipientNotifications).catch((notificationError) => {
+            console.warn('Expense activity notification save failed:', notificationError);
+          });
           for (const notif of recipientNotifications) {
             triggerPushNotification({
               recipientId: notif.recipientId,

@@ -232,7 +232,7 @@ function LinkPreview({ url, isMe }) {
   );
 }
 
-export default function ChatTab({ group, groups = [], currentUser, users, showToast }) {
+export default function ChatTab({ group, groups = [], currentUser, users, onSendNotification, showToast }) {
   const [messages, setMessages] = useState([]);
   const [typingMessages, setTypingMessages] = useState([]);
   const [typingNow, setTypingNow] = useState(0);
@@ -621,6 +621,39 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
     }
   };
 
+  const notifyGroupMembers = (message) => {
+    const recipientIds = (group.members || []).filter((id) => id !== currentUser.id);
+    if (!recipientIds.length) return;
+
+    const createdAt = new Date().toISOString();
+    const senderName = currentUser.username || 'A member';
+    const activityNotifications = recipientIds.map((recipientId) => ({
+      id: `notif_chat_${Date.now()}_${recipientId}`,
+      recipientId,
+      senderId: currentUser.id,
+      createdBy: currentUser.id,
+      createdByName: senderName,
+      groupId: group.id,
+      type: 'CHAT_MESSAGE',
+      message: `${senderName}: ${message}`,
+      createdAt,
+      read: false,
+    }));
+
+    onSendNotification?.(activityNotifications).catch((error) => {
+      console.warn('Chat activity notification save failed:', error);
+    });
+
+    recipientIds.forEach((recipientId) => {
+      triggerPushNotification({
+        recipientId,
+        title: `Message in ${group.name || 'Group'}`,
+        message: `${senderName}: ${message}`,
+        groupId: group.id,
+      }).catch((error) => console.warn('Chat push error:', error));
+    });
+  };
+
   const handleSend = async (e) => {
     e?.preventDefault();
     const cleanText = input.trim();
@@ -641,15 +674,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         reactions: {}
       });
 
-      const otherMembers = (group.members || []).filter((id) => id !== currentUser.id);
-      for (const memberId of otherMembers) {
-        triggerPushNotification({
-          recipientId: memberId,
-          title: `Message in ${group.name || 'Group'}`,
-          message: `${currentUser.username || 'A member'}: ${cleanText}`,
-          groupId: group.id,
-        }).catch((err) => console.warn('Chat push error:', err));
-      }
+      notifyGroupMembers(cleanText);
     } catch (err) {
       console.error("Error sending message:", err);
     }
@@ -674,6 +699,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         deletedFor: [],
         reactions: {}
       });
+      notifyGroupMembers('Sent a sticker');
     } catch (error) {
       console.error('Error sending sticker:', error);
       setAttachmentError('Sticker could not be sent.');
@@ -697,6 +723,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         deletedFor: [],
         reactions: {}
       });
+      notifyGroupMembers('Sent a GIF');
     } catch (error) {
       console.error('Error sending gif:', error);
       setAttachmentError('GIF could not be sent.');
@@ -789,6 +816,8 @@ export default function ChatTab({ group, groups = [], currentUser, users, showTo
         deletedFor: [],
         reactions: {}
       });
+      const attachmentLabel = attachmentType === 'image' ? 'photo' : attachmentType;
+      notifyGroupMembers(`Sent a ${attachmentLabel}`);
     } catch (error) {
       console.error('Error uploading chat attachment:', error);
       setAttachmentError(error.message || 'Could not send this file.');

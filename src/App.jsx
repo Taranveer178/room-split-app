@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
   collection,
@@ -20,15 +20,17 @@ import AuthScreen from './components/auth/AuthScreen';
 import Dashboard from './components/dashboard/Dashboard';
 import CreateGroupModal from './components/dashboard/CreateGroupModal';
 import JoinGroupModal from './components/dashboard/JoinGroupModal';
-import GroupView from './components/group/GroupView';
 import Toast from './components/common/Toast';
 import IncomingChatAlert from './components/common/IncomingChatAlert';
-import AdminPanel from './components/admin/AdminPanel';
 import {
+  listenToForegroundMessages,
   requestNotificationPermission,
   setPushNotificationActionHandler,
   unregisterPushNotifications,
 } from './utils/notifications';
+
+const GroupView = lazy(() => import('./components/group/GroupView'));
+const AdminPanel = lazy(() => import('./components/admin/AdminPanel'));
 
 const getGroupSlug = (name, fallback = 'group') => {
   const slug = name
@@ -91,6 +93,19 @@ const getNotificationTimestamp = (value) => {
   return Number.isFinite(timestamp) ? timestamp : null;
 };
 
+function LaunchScreen() {
+  return (
+    <main className="launch-screen" role="status" aria-label="Loading RoomSplit">
+      <div className="launch-screen__logo-frame">
+        <img className="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
+      </div>
+      <h1 className="launch-screen__title">RoomSplit</h1>
+      <p className="launch-screen__subtitle">Split bills. Stay balanced.</p>
+      <span className="launch-screen__spinner" aria-hidden="true" />
+    </main>
+  );
+}
+
 
 if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -145,6 +160,26 @@ export default function App() {
     const refreshCutoff = () => setNotificationCutoff(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const interval = window.setInterval(refreshCutoff, 60 * 60 * 1000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    let unsubscribe;
+    listenToForegroundMessages((payload) => {
+      if (!isActive) return;
+      const title = payload.notification?.title || payload.data?.title || 'RoomSplit';
+      const message = payload.notification?.body || payload.data?.message || 'You have a new update.';
+      setToast({ message: `${title}: ${message}`, type: 'success' });
+      window.setTimeout(() => setToast(null), 3000);
+    }).then((stopListening) => {
+      if (isActive) unsubscribe = stopListening;
+      else stopListening?.();
+    }).catch((error) => console.warn('Foreground push listener could not start:', error));
+
+    return () => {
+      isActive = false;
+      unsubscribe?.();
+    };
   }, []);
 
   const applyRoute = (route) => {
@@ -580,20 +615,15 @@ export default function App() {
   });
 
   if (window.location.pathname === '/admin') {
-    return <AdminPanel />;
+    return (
+      <Suspense fallback={<LaunchScreen />}>
+        <AdminPanel />
+      </Suspense>
+    );
   }
 
   if (loading) {
-    return (
-      <main className="launch-screen" role="status" aria-label="Loading RoomSplit">
-        <div className="launch-screen__logo-frame">
-          <img className="launch-screen__logo" src="/roomsplit-icon.webp" alt="" />
-        </div>
-        <h1 className="launch-screen__title">RoomSplit</h1>
-        <p className="launch-screen__subtitle">Split bills. Stay balanced.</p>
-        <span className="launch-screen__spinner" aria-hidden="true" />
-      </main>
-    );
+    return <LaunchScreen />;
   }
 
   return (
@@ -655,54 +685,60 @@ export default function App() {
           showToast={showToast}
         />
       ) : currentView === 'group' && activeGroup ? (
-        <GroupView
-          key={`${activeGroup.id}:${currentGroupInitialTab}`}
-          group={activeGroup}
-          initialTab={currentGroupInitialTab}
-          initialDrawerOpen={currentGroupDrawerOpen}
-          onGroupTabChange={(tab, { replace = false } = {}) => {
-            navigateTo({
-              view: 'group',
-              groupId: activeGroup.id,
-              groupName: activeGroup.name,
-              initialTab: tab,
-              drawerOpen: false,
-            }, { replace });
-          }}
-          onOpenRoomOptions={() => {
-            navigateTo({
-              view: 'group',
-              groupId: activeGroup.id,
-              groupName: activeGroup.name,
-              initialTab: 'expenses',
-              drawerOpen: true,
-            }, { replace: currentGroupInitialTab !== 'expenses' });
-          }}
-          onCloseRoomOptions={() => {
-            navigateTo({
-              view: 'group',
-              groupId: activeGroup.id,
-              groupName: activeGroup.name,
-              initialTab: currentGroupInitialTab,
-              drawerOpen: false,
-            }, { replace: true });
-          }}
-          onActiveChatChange={setActiveChatGroupId}
-          groups={groups}
-          expenses={expenses.filter((expense) => expense.groupId === activeGroup.id)}
-          onSaveExpense={saveExpense}
-          onDeleteExpense={deleteExpense}
-          onDeleteGroup={deleteGroup}
-          onUpdateGroup={updateGroup}
-          onSendNotification={saveNotifications}
-          users={users}
-          currentUser={activeUser}
-          onBack={goBack}
-          onNavigateDashboard={(tab) => {
-            navigateTo({ view: 'dashboard', dashboardTab: tab });
-          }}
-          showToast={showToast}
-        />
+        <Suspense fallback={(
+          <main className="flex h-[100dvh] items-center justify-center bg-slate-50" role="status" aria-label="Opening group">
+            <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-slate-300 border-t-sky-600" aria-hidden="true" />
+          </main>
+        )}>
+          <GroupView
+            key={`${activeGroup.id}:${currentGroupInitialTab}`}
+            group={activeGroup}
+            initialTab={currentGroupInitialTab}
+            initialDrawerOpen={currentGroupDrawerOpen}
+            onGroupTabChange={(tab, { replace = false } = {}) => {
+              navigateTo({
+                view: 'group',
+                groupId: activeGroup.id,
+                groupName: activeGroup.name,
+                initialTab: tab,
+                drawerOpen: false,
+              }, { replace });
+            }}
+            onOpenRoomOptions={() => {
+              navigateTo({
+                view: 'group',
+                groupId: activeGroup.id,
+                groupName: activeGroup.name,
+                initialTab: 'expenses',
+                drawerOpen: true,
+              }, { replace: currentGroupInitialTab !== 'expenses' });
+            }}
+            onCloseRoomOptions={() => {
+              navigateTo({
+                view: 'group',
+                groupId: activeGroup.id,
+                groupName: activeGroup.name,
+                initialTab: currentGroupInitialTab,
+                drawerOpen: false,
+              }, { replace: true });
+            }}
+            onActiveChatChange={setActiveChatGroupId}
+            groups={groups}
+            expenses={expenses.filter((expense) => expense.groupId === activeGroup.id)}
+            onSaveExpense={saveExpense}
+            onDeleteExpense={deleteExpense}
+            onDeleteGroup={deleteGroup}
+            onUpdateGroup={updateGroup}
+            onSendNotification={saveNotifications}
+            users={users}
+            currentUser={activeUser}
+            onBack={goBack}
+            onNavigateDashboard={(tab) => {
+              navigateTo({ view: 'dashboard', dashboardTab: tab });
+            }}
+            showToast={showToast}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

@@ -220,6 +220,7 @@ export default function GroupView({
               groups={groups}
               currentUser={currentUser}
               users={users}
+              onSendNotification={onSendNotification}
               showToast={showToast}
             />
           )}

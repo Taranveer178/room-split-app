@@ -330,6 +330,16 @@ export function setPushNotificationActionHandler(handler) {
 }
 
 export async function listenToForegroundMessages(onMessageReceived) {
+  if (Capacitor.isNativePlatform()) {
+    const listener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      onMessageReceived?.({
+        notification: { title: notification.title, body: notification.body },
+        data: notification.data || {},
+      });
+    });
+    return () => listener.remove();
+  }
+
   const supported = await isSupported();
   if (!supported) return undefined;
 
