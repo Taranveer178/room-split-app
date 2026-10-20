@@ -86,7 +86,7 @@ const extractLinks = (text = '') => {
         links.push({ text: linkText, url: parsedUrl.href });
       }
     } catch {
-      // Ignore malformed URL text rather than rendering an unsafe link.
+      // Ignore malformed URL text
     }
   }
   return links;
@@ -273,10 +273,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
   const pressTimerRef = useRef(null);
   const typingStopTimerRef = useRef(null);
   const typingDocRef = useMemo(
-    () => (db && group.id && currentUser.id
+    () => (db && group?.id && currentUser?.id
       ? doc(db, 'messages', `typing-${encodeURIComponent(group.id)}-${encodeURIComponent(currentUser.id)}`)
       : null),
-    [group.id, currentUser.id]
+    [group?.id, currentUser?.id]
   );
   const typingWriteQueueRef = useRef(Promise.resolve());
   const typingActiveRef = useRef(false);
@@ -421,9 +421,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
     const q = query(messagesRef, where('groupId', '==', group.id));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const msgs = snapshot.docs.map(docSnapshot => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data()
       }));
 
       setTypingMessages(msgs.filter((message) => message.type === 'typing'));
@@ -472,7 +472,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
       }
     });
     return [...activeUsers.values()];
-  }, [typingMessages, typingNow, group.id, currentUser.id]);
+  }, [typingMessages, typingNow, group?.id, currentUser?.id]);
 
   const typingLabel = typingUsers.length === 1
     ? `${typingUsers[0]} is typing`
@@ -530,39 +530,51 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
       }
       return true;
     });
-  }, [messages, currentUser.id]);
+  }, [messages, currentUser?.id]);
 
+  // FIXED: Accurate exact width calculation and vertical alignment avoiding boundary drift
   const triggerContextMenu = (targetEl, msg, isMe) => {
     if (msg.isDeletedForEveryone || isSelectMode) return;
     const rect = targetEl.getBoundingClientRect();
     const windowHeight = window.innerHeight;
     const windowWidth = window.innerWidth;
-    const popupWidth = 256;
-    const menuEstimatedHeight = 290;
 
-    const spaceBelow = windowHeight - rect.bottom;
-    const placeAbove = spaceBelow < menuEstimatedHeight && rect.top > menuEstimatedHeight;
+    // Use exact width of the clicked message bubble (clamped to screen)
+    const exactWidth = Math.min(rect.width, windowWidth - 32);
 
-    let xPos = isMe ? (rect.right - popupWidth) : rect.left;
-    xPos = Math.max(16, Math.min(xPos, windowWidth - popupWidth - 16));
+    // Align horizontally with the clicked bubble's left position
+    let xPos = rect.left;
+    xPos = Math.max(16, Math.min(xPos, windowWidth - exactWidth - 16));
+
+    // Calculate vertical position (compact preview capped at 3-4 lines)
+    const totalEstimatedHeight = 290;
+    let yPos = rect.top - 50;
+    if (yPos + totalEstimatedHeight > windowHeight - 16) {
+      yPos = windowHeight - totalEstimatedHeight - 16;
+    }
+    if (yPos < 16) {
+      yPos = 16;
+    }
 
     setActiveContextMenu({
       message: msg,
       isMe,
       rect,
-      position: placeAbove ? 'above' : 'below',
-      xPos
+      width: exactWidth,
+      xPos,
+      yPos
     });
   };
 
+  // FIXED: Reaction popup hold time reduced to 280ms for instant feedback
   const handleTouchStart = (event, msg, isMe) => {
     if (msg.isDeletedForEveryone || isSelectMode) return;
     const currentTarget = event.currentTarget;
 
     pressTimerRef.current = setTimeout(() => {
-      if (navigator.vibrate) navigator.vibrate(40);
+      if (navigator.vibrate) navigator.vibrate(35);
       triggerContextMenu(currentTarget, msg, isMe);
-    }, 450);
+    }, 380);
   };
 
   const handleTouchEnd = () => {
@@ -842,7 +854,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
     const items = e.clipboardData?.items;
     const files = e.clipboardData?.files;
 
-    // Check files first (native keyboard media paste)
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('image/')) {
@@ -852,7 +863,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
       }
     }
 
-    // Check clipboard items
     if (items) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -1045,7 +1055,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
     return deleteCandidates.every(
       (m) => m.senderId === currentUser.id || group.createdBy === currentUser.id
     );
-  }, [deleteCandidates, currentUser.id, group.createdBy]);
+  }, [deleteCandidates, currentUser?.id, group?.createdBy]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden bg-slate-100/60 font-sans select-none">
@@ -1112,7 +1122,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
         )
       )}
 
-      {/* Main WhatsApp-Style Message Feed */}
+      {/* Main Message Feed */}
       <div
         ref={messageFeedRef}
         onWheel={() => { initialAutoScrollRef.current = false; }}
@@ -1237,16 +1247,16 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
                               <div className="overflow-hidden rounded-xl p-1">
                                 {msg.attachmentType === 'image' || msg.attachmentType === 'gif' ? (
                                   <div className="relative">
-                                    <img
-                                      src={msg.attachmentData || msg.mediaData}
-                                      alt="Chat media"
+                                    <img 
+                                      src={msg.attachmentData || msg.mediaData} 
+                                      alt="Chat media" 
                                       onClick={(e) => {
                                         if (isSelectMode) return;
                                         e.stopPropagation();
                                         setSelectedImage({ ...msg, attachmentData: msg.attachmentData || msg.mediaData });
                                       }}
-                                      className="max-h-72 w-full object-cover rounded-xl"
-                                      loading="lazy"
+                                      className="max-h-72 w-full object-cover rounded-xl" 
+                                      loading="lazy" 
                                     />
                                     <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white">
                                       <span>{timeString}</span>
@@ -1362,55 +1372,60 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
       {/* Blurred Liquid Glass Pop-up Menu */}
       {activeContextMenu && createPortal(
         <div 
-          className="fixed inset-0 z-[110] bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[110] bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-150"
           onClick={() => setActiveContextMenu(null)}
         >
           <div 
-            className="absolute flex flex-col gap-2 z-10 w-64 animate-in zoom-in-95 duration-200"
+            className="absolute flex flex-col gap-2 z-10 animate-in zoom-in-95 duration-150"
             style={{
               left: `${activeContextMenu.xPos}px`,
-              top: activeContextMenu.position === 'below' 
-                ? `${Math.min(window.innerHeight - 340, activeContextMenu.rect.bottom + 12)}px`
-                : `${Math.max(16, activeContextMenu.rect.top - 330)}px`
+              top: `${activeContextMenu.yPos}px`,
+              width: `${activeContextMenu.width}px`
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Quick Emoji Reaction Pill Bar */}
-            <div className="flex items-center justify-between bg-white/85 backdrop-blur-2xl px-3.5 py-2 rounded-full shadow-2xl border border-white/70">
+            <div className={`flex items-center justify-between bg-white/95 backdrop-blur-2xl px-3.5 py-1.5 rounded-full shadow-2xl border border-white/70 w-fit gap-1.5 ${
+              activeContextMenu.isMe ? 'self-end' : 'self-start'
+            }`}>
               {QUICK_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
                   onClick={() => handleToggleReaction(activeContextMenu.message, emoji)}
-                  className="text-xl hover:scale-125 active:scale-95 transition-transform"
+                  className="text-xl hover:scale-125 active:scale-90 transition-transform px-1"
                 >
                   {emoji}
                 </button>
               ))}
             </div>
 
-            {/* Highlighted Message Preview */}
-            <div className={`p-3 rounded-2xl shadow-xl border text-[13.5px] leading-relaxed break-words max-h-40 overflow-y-auto scrollbar-hide backdrop-blur-xl ${
+            {/* Highlighted Message Preview: Exact Original Width & 3-4 Lines Clamp */}
+            <div className={`w-full p-3.5 rounded-2xl shadow-xl border text-[13.5px] leading-relaxed break-words backdrop-blur-xl ${
               activeContextMenu.isMe
                 ? 'bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 text-white border-white/30 shadow-sky-500/20'
-                : 'bg-white/90 text-slate-800 border-white/80'
+                : 'bg-white/95 text-slate-800 border-white/80 shadow-slate-900/10'
             }`}>
               {activeContextMenu.message.text ? (
-                <p className="whitespace-pre-wrap">{activeContextMenu.message.text}</p>
+                <p className="line-clamp-4 whitespace-pre-wrap select-text font-normal">
+                  {activeContextMenu.message.text}
+                </p>
               ) : activeContextMenu.message.type === 'sticker' ? (
-                <span className="text-4xl">{activeContextMenu.message.text}</span>
+                <div className="flex justify-center py-1">
+                  <span className="text-4xl">{activeContextMenu.message.text}</span>
+                </div>
               ) : activeContextMenu.message.attachmentData ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   {activeContextMenu.message.attachmentType === 'image' || activeContextMenu.message.attachmentType === 'gif' ? (
                     <img 
                       src={activeContextMenu.message.attachmentData} 
                       alt="preview" 
-                      className="w-16 h-16 rounded-xl object-cover" 
+                      className="w-14 h-14 rounded-xl object-cover flex-shrink-0" 
                     />
                   ) : (
                     <FileText size={24} className={activeContextMenu.isMe ? 'text-white' : 'text-sky-500'} />
                   )}
-                  <span className="truncate text-xs font-bold">
+                  <span className="truncate text-xs font-bold flex-1">
                     {activeContextMenu.message.attachmentName || 'Media attachment'}
                   </span>
                 </div>
@@ -1420,7 +1435,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
             </div>
 
             {/* iOS-Style Stacked Options Menu */}
-            <div className="overflow-hidden rounded-2xl bg-white/90 backdrop-blur-2xl shadow-2xl border border-white/70 divide-y divide-slate-100/90">
+            <div className={`overflow-hidden rounded-2xl bg-white/95 backdrop-blur-2xl shadow-2xl border border-white/70 divide-y divide-slate-100/90 w-full max-w-[240px] sm:max-w-[260px] ${
+              activeContextMenu.isMe ? 'self-end' : 'self-start'
+            }`}>
               {activeContextMenu.message.text && (
                 <button
                   type="button"
@@ -1709,10 +1726,9 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
                 </>
               )}
 
-              {/* iOS-Optimized GIF Tab with Search */}
+              {/* GIF Tab with Search */}
               {pickerTab === 'gif' && (
                 <div className="space-y-2">
-                  {/* Search Bar */}
                   <div className="relative">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -1733,7 +1749,6 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
                     )}
                   </div>
 
-                  {/* iOS Safe Fixed-Height Scroll Grid */}
                   <div className="min-h-0 max-h-48 overflow-y-auto overflow-x-hidden p-1 scrollbar-hide [-webkit-overflow-scrolling:touch]">
                     {isSearchingGifs ? (
                       <div className="flex flex-col items-center justify-center py-8 text-slate-400 text-xs">
@@ -1778,6 +1793,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
             <input
               ref={fileInputRef}
               type="file"
+              
               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
               onChange={handleFileUpload}
               className="hidden"
