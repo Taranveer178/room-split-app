@@ -483,7 +483,7 @@ export default function BalancesTab({
             <select 
               value={customPayee} 
               onChange={(e) => setCustomPayee(e.target.value)}
-              className="w-full h-11 pl-10 pr-3 text-xs font-semibold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs"
+              className="w-full h-11 pl-10 pr-3 text-base font-semibold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs"
             >
               <option value="" className="font-normal">Select payee roommate...</option>
               {group.members.filter(m => m !== currentUser.id).map(memberId => (
@@ -502,7 +502,7 @@ export default function BalancesTab({
               step="0.01"
               value={customAmount} 
               onChange={(e) => setCustomAmount(e.target.value)} 
-              className="w-full h-11 pl-9 pr-3 text-sm font-mono font-bold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="w-full h-11 pl-9 pr-3 text-base font-mono font-bold border border-slate-200/80 rounded-2xl bg-white/60 hover:bg-white text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
         </div>

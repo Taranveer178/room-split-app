@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { 
-  ArrowLeft, Plus, Receipt, Settings, Wallet, MessageSquare 
+  ArrowLeft, Plus, Settings, Wallet, MessageSquare
 } from 'lucide-react';
 
 import PrimaryNav from '../common/PrimaryNav';
@@ -42,7 +42,7 @@ export default function GroupView({
       e.preventDefault();
       if (activeTab !== 'expenses') {
         // If in chat, balances, or settings -> go back to expenses
-        handleTabSelect('expenses');
+        onGroupTabChange?.('expenses');
       } else {
         // If already in expenses -> go back to dashboard
         onBack();
@@ -51,7 +51,7 @@ export default function GroupView({
 
     window.addEventListener('popstate', handleHardwareBack);
     return () => window.removeEventListener('popstate', handleHardwareBack);
-  }, [activeTab, onBack]);
+  }, [activeTab, onBack, onGroupTabChange]);
 
   // --- TAB CHANGE HANDLERS ---
   useEffect(() => {
@@ -82,9 +82,10 @@ export default function GroupView({
             
             {/* Navigates to Dashboard */}
             <button 
-              onClick={onBack} 
+              onClick={() => onNavigateDashboard('groups')}
               className="p-2 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors flex-shrink-0"
               title="Back to Dashboard"
+              aria-label="Back to dashboard"
             >
               <ArrowLeft size={22} />
             </button>

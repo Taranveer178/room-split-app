@@ -544,13 +544,21 @@ export default function App() {
     navigateTo({ view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
   };
 
+  const upsertItemsById = (items, replacements) => {
+    const next = new Map(items.map((item) => [item.id, item]));
+    replacements.forEach((item) => {
+      next.set(item.id, item);
+    });
+    return [...next.values()];
+  };
+
   const saveUser = async (newUser) => {
     if (db) {
       await setDoc(doc(db, 'users', newUser.id), newUser, { merge: true });
       return;
     }
     setUsers((previous) => {
-      const next = [...previous, newUser];
+      const next = upsertItemsById(previous, [newUser]);
       localStorage.setItem('rs_users', JSON.stringify(next));
       return next;
     });
@@ -583,7 +591,7 @@ export default function App() {
       return;
     }
     setNotifications((previous) => {
-      const next = [...previous, ...deliverableNotifications];
+      const next = upsertItemsById(previous, deliverableNotifications);
       localStorage.setItem('rs_notifications', JSON.stringify(next));
       return next;
     });
@@ -632,7 +640,7 @@ export default function App() {
       return;
     }
     setGroups((previous) => {
-      const next = [...previous, newGroup];
+      const next = upsertItemsById(previous, [newGroup]);
       localStorage.setItem('rs_groups', JSON.stringify(next));
       return next;
     });
@@ -756,13 +764,7 @@ export default function App() {
 
   return (
     <div
-      className="w-full h-[var(--app-height,100dvh)] flex flex-col bg-slate-50 relative overflow-hidden font-sans"
-      style={currentView === 'group' && currentGroupInitialTab === 'chat' ? {
-        position: 'fixed',
-        top: 'var(--app-top, 0px)',
-        left: 0,
-        right: 0,
-      } : undefined}
+      className="fixed inset-x-0 top-[var(--app-top,0px)] z-0 flex h-[var(--app-height,100dvh)] w-full flex-col overflow-hidden bg-slate-50 font-sans"
     >
       <Toast toast={toast} />
       {incomingChat && (

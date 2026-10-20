@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
@@ -1720,7 +1720,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
                       value={gifSearchQuery}
                       onChange={(e) => setGifSearchQuery(e.target.value)}
                       placeholder="Search any GIF (powered by Giphy)..."
-                      className="w-full h-9 pl-9 pr-8 text-xs font-medium border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none focus:border-sky-400 focus:bg-white transition-colors"
+                      className="w-full h-9 pl-9 pr-8 text-base font-medium border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none focus:border-sky-400 focus:bg-white transition-colors"
                     />
                     {gifSearchQuery && (
                       <button
@@ -1817,7 +1817,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
               onPaste={handleInputPaste}
               placeholder="Type a message or note..."
               rows={1}
-              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none self-center overflow-y-hidden bg-transparent px-2.5 py-2 text-sm leading-5 text-slate-800 outline-none placeholder:text-slate-400 font-medium"
+              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none self-center overflow-y-hidden bg-transparent px-2.5 py-2 text-base leading-5 text-slate-800 outline-none placeholder:text-slate-400 font-medium"
             />
 
             <button
