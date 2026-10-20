@@ -269,6 +269,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
   const messageContentRef = useRef(null);
   const initialAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
+  const messageInputRef = useRef(null);
   const pressTimerRef = useRef(null);
   const typingStopTimerRef = useRef(null);
   const typingDocRef = useMemo(
@@ -660,6 +661,10 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
     if (!cleanText || !db) return;
 
     setInput('');
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = '40px';
+      messageInputRef.current.style.overflowY = 'hidden';
+    }
 
     try {
       stopTyping();
@@ -861,6 +866,27 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
         }
       }
     }
+
+    const pastedText = e.clipboardData?.getData('text/plain');
+    if (!pastedText || !messageInputRef.current) return;
+
+    e.preventDefault();
+    const inputElement = messageInputRef.current;
+    const normalizedText = pastedText.replace(/\r\n?/g, '\n');
+    const selectionStart = inputElement.selectionStart;
+    const selectionEnd = inputElement.selectionEnd;
+    const nextInput = `${input.slice(0, selectionStart)}${normalizedText}${input.slice(selectionEnd)}`;
+    const caretPosition = selectionStart + normalizedText.length;
+
+    setInput(nextInput);
+    updateTypingStatus(nextInput);
+    window.requestAnimationFrame(() => {
+      if (!messageInputRef.current) return;
+      messageInputRef.current.setSelectionRange(caretPosition, caretPosition);
+      messageInputRef.current.style.height = '40px';
+      messageInputRef.current.style.height = `${Math.min(messageInputRef.current.scrollHeight, 128)}px`;
+      messageInputRef.current.style.overflowY = messageInputRef.current.scrollHeight > 128 ? 'auto' : 'hidden';
+    });
   };
 
   const handleCopyMessage = (msg) => {
@@ -1746,7 +1772,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
 
           {/* Input Capsule with onPaste for Keyboard GIFs & Stickers */}
           <form 
-            onSubmit={handleSend} 
+            onSubmit={(e) => e.preventDefault()} 
             className="max-w-3xl mx-auto flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-full bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_12px_36px_-6px_rgba(15,23,42,0.12)] transition-all focus-within:ring-2 focus-within:ring-sky-500/20"
           >
             <input
@@ -1778,19 +1804,25 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
               <Smile size={19} />
             </button>
 
-            <input
+            <textarea
+              ref={messageInputRef}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
                 updateTypingStatus(e.target.value);
+                e.target.style.height = '40px';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+                e.target.style.overflowY = e.target.scrollHeight > 128 ? 'auto' : 'hidden';
               }}
               onPaste={handleInputPaste}
               placeholder="Type a message or note..."
-              className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 font-medium"
+              rows={1}
+              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none self-center overflow-y-hidden bg-transparent px-2.5 py-2 text-sm leading-5 text-slate-800 outline-none placeholder:text-slate-400 font-medium"
             />
 
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleSend()}
               disabled={!input.trim()}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/25 transition-all hover:opacity-95 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Send message"

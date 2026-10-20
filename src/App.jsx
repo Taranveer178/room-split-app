@@ -201,6 +201,23 @@ export default function App() {
     .join(',');
 
   useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateAppHeight = () => {
+      const height = viewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${height}px`);
+    };
+
+    updateAppHeight();
+    viewport?.addEventListener('resize', updateAppHeight);
+    window.addEventListener('resize', updateAppHeight);
+    return () => {
+      viewport?.removeEventListener('resize', updateAppHeight);
+      window.removeEventListener('resize', updateAppHeight);
+      document.documentElement.style.removeProperty('--app-height');
+    };
+  }, []);
+
+  useEffect(() => {
     const refreshCutoff = () => setNotificationCutoff(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const interval = window.setInterval(refreshCutoff, 60 * 60 * 1000);
     return () => window.clearInterval(interval);
@@ -671,7 +688,7 @@ export default function App() {
   }
 
   return (
-    <div className="w-full h-[100dvh] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
+    <div className="w-full h-[var(--app-height,100dvh)] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
       <Toast toast={toast} />
       {incomingChat && (
         <IncomingChatAlert
