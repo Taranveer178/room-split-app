@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "name": "RoomSplit",
+  "description": "Track shared expenses, split bills, view balances, and settle up with roommates.",
+  "url": "https://roomsplit.taranveer.in/",
+  "resources": [
+    {
+      "type": "website",
+      "url": "https://roomsplit.taranveer.in/",
+      "description": "RoomSplit web application"
+    },
+    {
+      "type": "sitemap",
+      "url": "https://roomsplit.taranveer.in/sitemap.xml"
+    },
+    {
+      "type": "llms",
+      "url": "https://roomsplit.taranveer.in/llms.txt"
+    }
+  ]
+}

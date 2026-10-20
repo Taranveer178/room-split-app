@@ -166,13 +166,33 @@ if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
 
 export default function App() {
   const [initialRoute] = useState(getRouteFromLocation);
-  const [users, setUsers] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [dataLoadStarted, setDataLoadStarted] = useState(false);
-  const [activeUserId, setActiveUserId] = useState(null);
+  const [activeUserId, setActiveUserId] = useState(
+    () => localStorage.getItem('rs_active_user_id')
+  );
+  const hasInitialLocalSession = Boolean(activeUserId && !(hasFirebase && db && auth));
+  const readStoredData = (key, fallback) => {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  };
+  const [users, setUsers] = useState(
+    () => hasInitialLocalSession ? readStoredData('rs_users', INITIAL_USERS) : []
+  );
+  const [usersLoaded, setUsersLoaded] = useState(hasInitialLocalSession);
+  const [groups, setGroups] = useState(
+    () => hasInitialLocalSession ? readStoredData('rs_groups', INITIAL_GROUPS) : []
+  );
+  const [expenses, setExpenses] = useState(
+    () => hasInitialLocalSession ? readStoredData('rs_expenses', INITIAL_EXPENSES) : []
+  );
+  const [notifications, setNotifications] = useState(
+    () => hasInitialLocalSession ? readStoredData('rs_notifications', []) : []
+  );
+  const [loading, setLoading] = useState(
+    () => Boolean(localStorage.getItem('rs_active_user_id') && hasFirebase && db && auth)
+  );
+  const [dataLoadStarted, setDataLoadStarted] = useState(
+    () => Boolean(localStorage.getItem('rs_active_user_id'))
+  );
   const [currentView, setCurrentView] = useState(initialRoute.view);
   const [dashboardTab, setDashboardTab] = useState(initialRoute.dashboardTab || 'groups');
   const [currentGroupRoute, setCurrentGroupRoute] = useState(
@@ -332,12 +352,22 @@ export default function App() {
         if (!auth.currentUser) await signInAnonymously(auth);
         if (isCancelled) return;
         unsubscribers.push(onSnapshot(collection(db, 'users'), (snapshot) => {
+          const loadedUsers = snapshot.empty
+            ? INITIAL_USERS
+            : snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
           if (!snapshot.empty) {
-            setUsers(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+            setUsers(loadedUsers);
           } else {
             INITIAL_USERS.forEach((user) => setDoc(doc(db, 'users', user.id), user).catch(() => {}));
-            setUsers(INITIAL_USERS);
+            setUsers(loadedUsers);
           }
+          if (activeUserId && !loadedUsers.some((user) => user.id === activeUserId)) {
+            localStorage.removeItem('rs_active_user_id');
+            setActiveUserId(null);
+            setDataLoadStarted(false);
+            setLoading(false);
+          }
+          setUsersLoaded(true);
         }, (error) => console.error('Users listener error:', error)));
 
         unsubscribers.push(onSnapshot(collection(db, 'groups'), (snapshot) => {
@@ -378,7 +408,12 @@ export default function App() {
       isCancelled = true;
       unsubscribers.forEach((unsubscribe) => unsubscribe?.());
     };
-  }, [dataLoadStarted]);
+  }, [activeUserId, dataLoadStarted]);
+
+  useEffect(() => {
+    if (!hasInitialLocalSession || !usersLoaded || activeUser) return;
+    localStorage.removeItem('rs_active_user_id');
+  }, [activeUser, hasInitialLocalSession, usersLoaded]);
 
   useEffect(() => {
     if (!activeUserId) return undefined;
@@ -448,6 +483,7 @@ export default function App() {
       const savedUsers = localStorage.getItem('rs_users');
       const loadedUsers = savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
       setUsers(loadedUsers);
+      setUsersLoaded(true);
       return loadedUsers;
     }
 
@@ -460,6 +496,7 @@ export default function App() {
       INITIAL_USERS.forEach((user) => setDoc(doc(db, 'users', user.id), user).catch(() => {}));
     }
     setUsers(loadedUsers);
+    setUsersLoaded(true);
     return loadedUsers;
   };
 
@@ -711,6 +748,9 @@ export default function App() {
   }
 
   if (loading) {
+    return <LaunchScreen />;
+  }
+  if (activeUserId && !usersLoaded) {
     return <LaunchScreen />;
   }
 

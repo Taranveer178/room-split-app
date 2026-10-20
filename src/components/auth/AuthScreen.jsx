@@ -254,7 +254,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
 
   // --- REUSABLE FORM CONTENT ---
   // Extracted to avoid duplicating input JSX for mobile and desktop views
-  const renderAuthForm = (inputRef) => (
+  const renderAuthForm = (inputRef, idPrefix) => (
     <div className="flex flex-col gap-5 w-full max-w-md mx-auto">
       {error && (
         <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm font-medium flex items-start gap-2.5 border border-red-100">
@@ -270,10 +270,11 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
 
       {isLogin || isForgotPassword ? (
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-bold text-slate-700 ml-1">
+          <label htmlFor={`${idPrefix}-identifier`} className="text-sm font-bold text-slate-700 ml-1">
             {isForgotPassword ? 'Email address' : 'Email or username'}
           </label>
           <input
+            id={`${idPrefix}-identifier`}
             ref={inputRef}
             type={isForgotPassword ? 'email' : 'text'}
             placeholder={isForgotPassword ? 'you@example.com' : 'you@example.com or username'}
@@ -290,8 +291,9 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
       ) : (
         <>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700 ml-1">Username</label>
+            <label htmlFor={`${idPrefix}-username`} className="text-sm font-bold text-slate-700 ml-1">Username</label>
             <input
+              id={`${idPrefix}-username`}
               ref={inputRef}
               type="text"
               placeholder="e.g. taran"
@@ -306,8 +308,9 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700 ml-1">Email</label>
+            <label htmlFor={`${idPrefix}-email`} className="text-sm font-bold text-slate-700 ml-1">Email</label>
             <input
+              id={`${idPrefix}-email`}
               type="email"
               placeholder="you@example.com"
               value={email}
@@ -326,7 +329,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
       {!isForgotPassword && (
         <div className="flex flex-col gap-1.5 relative">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-bold text-slate-700 ml-1">Password</label>
+            <label htmlFor={`${idPrefix}-password`} className="text-sm font-bold text-slate-700 ml-1">Password</label>
             {isLogin && (
               <button
                 type="button"
@@ -343,6 +346,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
           </div>
           <div className="relative">
             <input
+              id={`${idPrefix}-password`}
               type={showPassword ? 'text' : 'password'}
               placeholder={isLogin ? 'Your password' : 'At least 6 characters'}
               value={password}
@@ -360,6 +364,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-blue-600 focus:outline-none transition-colors"
               tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
             </button>
@@ -407,7 +412,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
 
   return (
     /* Outer container handles both viewport sizes cleanly */
-    <div className="min-h-[100dvh] w-full bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-950 font-sans flex items-center justify-center md:p-6 relative overflow-hidden">
+    <main className="min-h-[100dvh] w-full bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-950 font-sans flex items-center justify-center md:p-6 relative overflow-hidden">
       
       {/* Global Ambient Background Orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-cyan-400 rounded-full mix-blend-overlay filter blur-[100px] opacity-60 md:opacity-30"></div>
@@ -462,6 +467,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
             <button 
               onClick={closeSheet}
               className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors focus:outline-none"
+              aria-label="Back to sign in options"
             >
               <ArrowLeft size={24} />
             </button>
@@ -475,7 +481,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
           </div>
           <div className="flex-1 overflow-y-auto overscroll-none px-6 pt-6 pb-12 bg-slate-50/50">
             <form onSubmit={handleSubmit} className="w-full">
-              {renderAuthForm(mobileIdentifierRef)}
+              {renderAuthForm(mobileIdentifierRef, 'mobile')}
             </form>
           </div>
         </div>
@@ -500,13 +506,13 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
             <h2 className="text-4xl font-extrabold text-white leading-[1.15] tracking-tight mb-4">
               Split bills.<br />Track expenses.<br />Settle up.
             </h2>
-            <p className="text-blue-100/90 text-lg font-medium pr-4 leading-relaxed">
+            <p className="text-white text-lg font-medium pr-4 leading-relaxed">
               The smartest way to manage shared living without the financial stress.
             </p>
           </div>
 
           <div className="relative z-10 pb-4">
-            <p className="text-blue-200/80 text-sm font-medium">© {new Date().getFullYear()} RoomSplit Inc.</p>
+            <p className="text-white/90 text-sm font-medium">© {new Date().getFullYear()} RoomSplit Inc.</p>
           </div>
         </div>
 
@@ -527,13 +533,13 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
             </div>
             
             <form onSubmit={handleSubmit} className="w-full">
-              {renderAuthForm(desktopIdentifierRef)}
+              {renderAuthForm(desktopIdentifierRef, 'desktop')}
             </form>
           </div>
         </div>
 
       </div>
 
-    </div>
+    </main>
   );
 }

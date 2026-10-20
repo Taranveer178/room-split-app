@@ -1,0 +1,12 @@
+# RoomSplit
+
+RoomSplit helps people who share living spaces track shared expenses, split bills, view balances, and settle up.
+
+## Links
+
+- [RoomSplit website](https://roomsplit.taranveer.in/)
+- [Sitemap](https://roomsplit.taranveer.in/sitemap.xml)
+
+## Usage
+
+RoomSplit is an interactive application. Sign in to access personal groups, expenses, and account data. Do not assume that private account or group data is publicly accessible.
