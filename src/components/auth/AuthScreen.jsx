@@ -13,7 +13,7 @@ import { auth } from '../../firebase';
 
 export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogin }) {
   // --- STATE ---
-  const [isSheetOpen, setIsSheetOpen] = useState(true);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [identifier, setIdentifier] = useState('');

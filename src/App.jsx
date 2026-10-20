@@ -205,15 +205,19 @@ export default function App() {
     const updateAppHeight = () => {
       const height = viewport?.height || window.innerHeight;
       document.documentElement.style.setProperty('--app-height', `${height}px`);
+      document.documentElement.style.setProperty('--app-top', `${viewport?.offsetTop || 0}px`);
     };
 
     updateAppHeight();
     viewport?.addEventListener('resize', updateAppHeight);
+    viewport?.addEventListener('scroll', updateAppHeight);
     window.addEventListener('resize', updateAppHeight);
     return () => {
       viewport?.removeEventListener('resize', updateAppHeight);
+      viewport?.removeEventListener('scroll', updateAppHeight);
       window.removeEventListener('resize', updateAppHeight);
       document.documentElement.style.removeProperty('--app-height');
+      document.documentElement.style.removeProperty('--app-top');
     };
   }, []);
 
@@ -711,7 +715,15 @@ export default function App() {
   }
 
   return (
-    <div className="w-full h-[var(--app-height,100dvh)] flex flex-col bg-slate-50 relative overflow-hidden font-sans">
+    <div
+      className="w-full h-[var(--app-height,100dvh)] flex flex-col bg-slate-50 relative overflow-hidden font-sans"
+      style={currentView === 'group' && currentGroupInitialTab === 'chat' ? {
+        position: 'fixed',
+        top: 'var(--app-top, 0px)',
+        left: 0,
+        right: 0,
+      } : undefined}
+    >
       <Toast toast={toast} />
       {incomingChat && (
         <IncomingChatAlert
