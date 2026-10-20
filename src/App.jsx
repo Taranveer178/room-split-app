@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   setDoc,
@@ -169,10 +170,9 @@ export default function App() {
   const [groups, setGroups] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeUserId, setActiveUserId] = useState(() => (
-    localStorage.getItem('rs_active_user_id') || null
-  ));
+  const [loading, setLoading] = useState(false);
+  const [dataLoadStarted, setDataLoadStarted] = useState(false);
+  const [activeUserId, setActiveUserId] = useState(null);
   const [currentView, setCurrentView] = useState(initialRoute.view);
   const [dashboardTab, setDashboardTab] = useState(initialRoute.dashboardTab || 'groups');
   const [currentGroupRoute, setCurrentGroupRoute] = useState(
@@ -224,6 +224,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!dataLoadStarted) return undefined;
+
     let isActive = true;
     let unsubscribe;
     listenToForegroundMessages((payload) => {
@@ -241,7 +243,7 @@ export default function App() {
       isActive = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [dataLoadStarted]);
 
   const applyRoute = (route) => {
     currentRouteRef.current = route;
@@ -317,20 +319,7 @@ export default function App() {
   }, [initialRoute]);
 
   useEffect(() => {
-    if (window.location.pathname === '/admin') return undefined;
-
-    if (!hasFirebase || !db || !auth) {
-      const savedUsers = localStorage.getItem('rs_users');
-      const savedGroups = localStorage.getItem('rs_groups');
-      const savedExpenses = localStorage.getItem('rs_expenses');
-      const savedNotifications = localStorage.getItem('rs_notifications');
-      setUsers(savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS);
-      setGroups(savedGroups ? JSON.parse(savedGroups) : INITIAL_GROUPS);
-      setExpenses(savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES);
-      setNotifications(savedNotifications ? JSON.parse(savedNotifications) : []);
-      setLoading(false);
-      return undefined;
-    }
+    if (window.location.pathname === '/admin' || !dataLoadStarted) return undefined;
 
     const unsubscribers = [];
     let isCancelled = false;
@@ -385,7 +374,7 @@ export default function App() {
       isCancelled = true;
       unsubscribers.forEach((unsubscribe) => unsubscribe?.());
     };
-  }, []);
+  }, [dataLoadStarted]);
 
   useEffect(() => {
     if (!activeUserId) return undefined;
@@ -450,6 +439,26 @@ export default function App() {
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [activeChatGroupId, activeUserId, joinedGroupIds, mutedGroupIds]);
 
+  const loadUsersForAuth = async () => {
+    if (!hasFirebase || !db || !auth) {
+      const savedUsers = localStorage.getItem('rs_users');
+      const loadedUsers = savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
+      setUsers(loadedUsers);
+      return loadedUsers;
+    }
+
+    if (!auth.currentUser) await signInAnonymously(auth);
+    const snapshot = await getDocs(collection(db, 'users'));
+    const loadedUsers = snapshot.empty
+      ? INITIAL_USERS
+      : snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    if (snapshot.empty) {
+      INITIAL_USERS.forEach((user) => setDoc(doc(db, 'users', user.id), user).catch(() => {}));
+    }
+    setUsers(loadedUsers);
+    return loadedUsers;
+  };
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -458,6 +467,18 @@ export default function App() {
   const handleLogin = (userId) => {
     setIncomingChat(null);
     setActiveChatGroupId(null);
+    if (hasFirebase && db && auth) {
+      setLoading(true);
+      setDataLoadStarted(true);
+    } else {
+      const savedGroups = localStorage.getItem('rs_groups');
+      const savedExpenses = localStorage.getItem('rs_expenses');
+      const savedNotifications = localStorage.getItem('rs_notifications');
+      setGroups(savedGroups ? JSON.parse(savedGroups) : INITIAL_GROUPS);
+      setExpenses(savedExpenses ? JSON.parse(savedExpenses) : INITIAL_EXPENSES);
+      setNotifications(savedNotifications ? JSON.parse(savedNotifications) : []);
+      setLoading(false);
+    }
     setActiveUserId(userId);
     localStorage.setItem('rs_active_user_id', userId);
     navigateTo(initialRoute.view === 'join_group'
@@ -475,6 +496,8 @@ export default function App() {
     }
     setIncomingChat(null);
     setActiveChatGroupId(null);
+    setDataLoadStarted(false);
+    setLoading(false);
     setActiveUserId(null);
     localStorage.removeItem('rs_active_user_id');
     navigateTo({ view: 'dashboard', dashboardTab: 'groups' }, { replace: true });
@@ -712,7 +735,12 @@ export default function App() {
         />
       )}
       {!activeUser ? (
-        <AuthScreen users={users} onSaveUser={saveUser} onLogin={handleLogin} />
+        <AuthScreen
+          users={users}
+          onLoadUsers={loadUsersForAuth}
+          onSaveUser={saveUser}
+          onLogin={handleLogin}
+        />
       ) : currentView === 'dashboard' ? (
         <Dashboard
           key={dashboardTab}

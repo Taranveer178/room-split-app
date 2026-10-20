@@ -11,9 +11,9 @@ import roomsplitIcon from '../../assets/roomsplit-icon.webp';
 import { Button } from '../common/UI';
 import { auth } from '../../firebase';
 
-export default function AuthScreen({ users = [], onSaveUser, onLogin }) {
+export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogin }) {
   // --- STATE ---
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(true);
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [identifier, setIdentifier] = useState('');
@@ -97,12 +97,14 @@ export default function AuthScreen({ users = [], onSaveUser, onLogin }) {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
+      const authUsers = isForgotPassword ? users : await onLoadUsers();
+
       if (!auth) {
         if (isForgotPassword) {
           throw new Error('Password reset is unavailable without a Firebase connection.');
         }
         if (isLogin) {
-          const localUser = users.find((item) => (
+          const localUser = authUsers.find((item) => (
             item.email?.toLowerCase() === cleanIdentifier.toLowerCase()
             || item.username?.toLowerCase() === cleanIdentifier.toLowerCase()
           ));
@@ -125,7 +127,7 @@ export default function AuthScreen({ users = [], onSaveUser, onLogin }) {
           setError('Password must be at least 6 characters.');
           return;
         }
-        if (users.some((item) => (
+        if (authUsers.some((item) => (
           item.username?.toLowerCase() === cleanUsername.toLowerCase()
           || item.email?.toLowerCase() === cleanEmail
         ))) {
@@ -158,12 +160,12 @@ export default function AuthScreen({ users = [], onSaveUser, onLogin }) {
       }
 
       if (isLogin) {
-        const matchedUser = users.find((item) => (
+        const matchedUser = authUsers.find((item) => (
           item.email?.toLowerCase() === cleanIdentifier.toLowerCase()
           || item.username?.toLowerCase() === cleanIdentifier.toLowerCase()
         ));
         if (!matchedUser) {
-          const legacyUser = users.find(
+          const legacyUser = authUsers.find(
             (item) => item.username?.toLowerCase() === cleanIdentifier.toLowerCase()
           );
           if (!legacyUser || legacyUser.password !== password) {
@@ -218,11 +220,11 @@ export default function AuthScreen({ users = [], onSaveUser, onLogin }) {
         setError('Password must be at least 6 characters.');
         return;
       }
-      if (users.some((item) => item.username?.toLowerCase() === cleanUsername.toLowerCase())) {
+      if (authUsers.some((item) => item.username?.toLowerCase() === cleanUsername.toLowerCase())) {
         setError('Username already taken. Please sign in.');
         return;
       }
-      if (users.some((item) => item.email?.toLowerCase() === cleanEmail)) {
+      if (authUsers.some((item) => item.email?.toLowerCase() === cleanEmail)) {
         setError('An account already uses this email. Please sign in.');
         return;
       }
