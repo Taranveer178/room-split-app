@@ -8,6 +8,7 @@ const ALLOWED_COLLECTIONS = new Set([
   'notifications',
   'messages',
   'calls',
+  'settings',
 ]);
 const MAX_RECORD_BYTES = 850 * 1024;
 const MAX_LIST_SIZE = 500;

@@ -12,6 +12,7 @@ import {
   Save,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   Users,
   X,
@@ -24,6 +25,7 @@ const COLLECTIONS = [
   { id: 'messages', label: 'Messages', icon: MessageCircle },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'calls', label: 'Calls', icon: Phone },
+  { id: 'settings', label: 'App settings', icon: SlidersHorizontal },
 ];
 
 const DEFAULT_RECORDS = {
@@ -33,6 +35,7 @@ const DEFAULT_RECORDS = {
   messages: { groupId: '', senderId: '', senderName: '', text: '' },
   notifications: { recipientId: '', message: '', read: false },
   calls: { groupId: '', callType: 'group', mediaType: 'video', status: 'ended' },
+  settings: { maintenanceMode: false, allowRegistration: true, defaultCurrency: 'INR' },
 };
 
 async function readResponse(response) {
@@ -47,6 +50,7 @@ function recordTitle(collectionId, record) {
   if (collectionId === 'expenses') return record.title || record.id;
   if (collectionId === 'messages') return record.text || record.attachmentName || 'Media message';
   if (collectionId === 'notifications') return record.message || record.id;
+  if (collectionId === 'settings') return record.name || record.key || record.id;
   return `${record.callType || 'Call'} ${record.mediaType || ''}`.trim() || record.id;
 }
 
@@ -56,6 +60,7 @@ function recordSubtitle(collectionId, record) {
   if (collectionId === 'expenses') return `₹${record.totalAmount || '0'} · ${record.date || record.groupId || ''}`;
   if (collectionId === 'messages') return `${record.senderName || record.senderId || 'Unknown'} · ${record.createdAt || ''}`;
   if (collectionId === 'notifications') return `${record.read ? 'Read' : 'Unread'} · ${record.recipientId || ''}`;
+  if (collectionId === 'settings') return 'Global app configuration';
   return `${record.status || 'Unknown status'} · ${record.groupId || ''}`;
 }
 
