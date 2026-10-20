@@ -494,11 +494,8 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
       <div className="hidden md:flex relative z-10 w-full max-w-[950px] min-h-[580px] bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden">
         
         {/* Left Side: Branding Banner */}
-        <div className="w-[45%] bg-blue-600 p-12 flex flex-col justify-between relative overflow-hidden">
+        <div className="w-[45%] bg-blue-900 p-12 flex flex-col justify-between relative overflow-hidden">
           {/* Decorative Elements */}
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-400 rounded-full mix-blend-screen opacity-30 blur-3xl"></div>
-          <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-500 rounded-full mix-blend-screen opacity-50 blur-3xl"></div>
-
           <div className="relative z-10 mt-4">
             <div className="w-16 h-16 bg-white/95 rounded-2xl p-2 mb-8 shadow-xl border border-white/20">
               <img src={roomsplitIcon} alt="RoomSplit Logo" className="w-full h-full object-contain" />
@@ -512,7 +509,7 @@ export default function AuthScreen({ users = [], onLoadUsers, onSaveUser, onLogi
           </div>
 
           <div className="relative z-10 pb-4">
-            <p className="text-white/90 text-sm font-medium">© {new Date().getFullYear()} RoomSplit Inc.</p>
+            <p className="text-white text-sm font-medium">© {new Date().getFullYear()} RoomSplit Inc.</p>
           </div>
         </div>
 

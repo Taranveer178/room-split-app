@@ -1,21 +1,17 @@
 {
-  "version": "1.0",
-  "name": "RoomSplit",
-  "description": "Track shared expenses, split bills, view balances, and settle up with roommates.",
-  "url": "https://roomsplit.taranveer.in/",
-  "resources": [
+  "@context": "https://agenticresourcediscovery.org/context/v1",
+  "entries": [
     {
-      "type": "website",
+      "@id": "urn:air:taranveer.in:roomsplit",
+      "identifier": "urn:air:taranveer.in:roomsplit",
+      "displayName": "RoomSplit",
+      "type": "text/html",
       "url": "https://roomsplit.taranveer.in/",
-      "description": "RoomSplit web application"
-    },
-    {
-      "type": "sitemap",
-      "url": "https://roomsplit.taranveer.in/sitemap.xml"
-    },
-    {
-      "type": "llms",
-      "url": "https://roomsplit.taranveer.in/llms.txt"
+      "description": "Track shared expenses, split bills, view balances, and settle up with roommates.",
+      "representativeQueries": [
+        "How can roommates track and split shared expenses?",
+        "How do I calculate balances and settle bills with my housemates?"
+      ]
     }
   ]
 }
