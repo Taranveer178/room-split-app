@@ -16,6 +16,8 @@ const messaging = firebase.messaging();
 
 // Handle notification display when the browser is backgrounded or tab closed
 messaging.onBackgroundMessage((payload) => {
+  if (payload.notification) return;
+
   const title = payload.notification?.title || payload.data?.title || 'RoomSplit Alert';
   const options = {
     body: payload.notification?.body || payload.data?.message || 'New activity in your group.',
