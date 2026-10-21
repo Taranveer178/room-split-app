@@ -574,7 +574,7 @@ export default function ChatTab({ group, groups = [], currentUser, users, onSend
     pressTimerRef.current = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate(35);
       triggerContextMenu(currentTarget, msg, isMe);
-    }, 380);
+    }, 580);
   };
 
   const handleTouchEnd = () => {
